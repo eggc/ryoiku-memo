@@ -90,7 +90,8 @@ data class MemoItem(
 
 data class StampItem(
     override val timestamp: Long,
-    val type: StampType
+    val type: StampType,
+    val note: String
 ) : TimelineItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,7 +204,11 @@ fun TimelineScreen(
         val stampPrefs = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
         val stamps = stampPrefs.all.mapNotNull { (key, value) ->
             try {
-                StampItem(timestamp = key.toLong(), type = StampType.valueOf(value as String))
+                val valueString = value as String
+                val parts = valueString.split('|', limit = 2)
+                val type = StampType.valueOf(parts[0])
+                val note = if (parts.size > 1) parts[1] else ""
+                StampItem(timestamp = key.toLong(), type = type, note = note)
             } catch (e: Exception) {
                 null
             }
@@ -285,6 +290,7 @@ fun TimelineScreen(
                             is StampItem -> StampHistoryCard(
                                 timestamp = item.timestamp,
                                 stampType = item.type,
+                                note = item.note,
                                 onEditClick = { onEditStampClick(item.timestamp) },
                                 onDeleteClick = { showDeleteDialogFor = item }
                             )
@@ -328,7 +334,7 @@ fun MemoCard(timestamp: Long, text: String, onEditClick: () -> Unit, onDeleteCli
 }
 
 @Composable
-fun StampHistoryCard(timestamp: Long, stampType: StampType, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
+fun StampHistoryCard(timestamp: Long, stampType: StampType, note: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -344,6 +350,13 @@ fun StampHistoryCard(timestamp: Long, stampType: StampType, onEditClick: () -> U
                 Icon(stampType.icon, contentDescription = stampType.label, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = stampType.label, style = MaterialTheme.typography.bodyLarge)
+            }
+            if (note.isNotBlank()) {
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -365,13 +378,16 @@ fun StampHistoryCard(timestamp: Long, stampType: StampType, onEditClick: () -> U
 fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated: () -> Unit) {
     val context = LocalContext.current
     val sharedPref = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
-    val stampTypeString = sharedPref.getString(stampId.toString(), null)
+    val stampValueString = sharedPref.getString(stampId.toString(), null)
 
-    if (stampTypeString == null) {
+    if (stampValueString == null) {
         Text("エラー: スタンプが見つかりません", modifier = modifier.padding(16.dp))
         return
     }
-    val stampType = StampType.valueOf(stampTypeString)
+
+    val parts = stampValueString.split('|', limit = 2)
+    val stampType = StampType.valueOf(parts[0])
+    val initialNote = if (parts.size > 1) parts[1] else ""
 
     val initialCalendar = Calendar.getInstance().apply { timeInMillis = stampId }
 
@@ -380,12 +396,12 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
     var day by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.DAY_OF_MONTH).toString()) }
     var hour by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY).toString()) }
     var minute by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.MINUTE).toString()) }
+    var note by rememberSaveable { mutableStateOf(initialNote) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(16.dp)
     ) {
         Text("スタンプの編集", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
@@ -415,6 +431,15 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
             TextField(value = minute, onValueChange = { minute = it }, label = { Text("分") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextField(
+            value = note,
+            onValueChange = { note = it },
+            label = { Text("一言メモ") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
         Spacer(modifier = Modifier.weight(1f))
 
         Button(onClick = {
@@ -428,10 +453,11 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
                     minute.toInt()
                 )
                 val newTimestamp = newCalendar.timeInMillis
+                val newStampValue = "${stampType.name}|${note}"
 
                 with(sharedPref.edit()) {
                     remove(stampId.toString())
-                    putString(newTimestamp.toString(), stampType.name)
+                    putString(newTimestamp.toString(), newStampValue)
                     apply()
                 }
                 Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
