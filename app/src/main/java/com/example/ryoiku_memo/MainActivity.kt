@@ -403,11 +403,6 @@ fun StampHistoryCard(timestamp: Long, stampType: StampType, note: String, onEdit
             .padding(vertical = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp)),
-                style = MaterialTheme.typography.bodySmall
-            )
-            Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(stampType.icon, contentDescription = stampType.label, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(8.dp))
@@ -420,10 +415,16 @@ fun StampHistoryCard(timestamp: Long, stampType: StampType, note: String, onEdit
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp)),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(modifier = Modifier.weight(1f))
                 TextButton(onClick = onEditClick) {
                     Text("編集")
                 }
