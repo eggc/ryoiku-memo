@@ -68,6 +68,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// タイムラインの項目を表す共通のデータ構造
+sealed interface TimelineItem {
+    val timestamp: Long
+}
+
+data class MemoItem(
+    override val timestamp: Long,
+    val text: String
+) : TimelineItem
+
+data class StampItem(
+    override val timestamp: Long,
+    val type: StampType
+) : TimelineItem
+
 @OptIn(ExperimentalMaterial3Api::class)
 @PreviewScreenSizes
 @Composable
@@ -141,25 +156,53 @@ enum class AppDestinations(
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier, onEditClick: (Long) -> Unit) {
     val context = LocalContext.current
-    val sharedPref = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
-    var memos by remember { mutableStateOf(getMemos(sharedPref)) }
-    var showDeleteDialogFor by remember { mutableStateOf<Long?>(null) }
+
+    fun getTimelineItems(): List<TimelineItem> {
+        val memoPrefs = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
+        val memos = memoPrefs.all.mapNotNull { (key, value) ->
+            try {
+                MemoItem(timestamp = key.toLong(), text = value as String)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        val stampPrefs = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
+        val stamps = stampPrefs.all.mapNotNull { (key, value) ->
+            try {
+                StampItem(timestamp = key.toLong(), type = StampType.valueOf(value as String))
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        return (memos + stamps).sortedByDescending { it.timestamp }
+    }
+
+    var timelineItems by remember { mutableStateOf(getTimelineItems()) }
+    var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
 
     if (showDeleteDialogFor != null) {
+        val itemToDelete = showDeleteDialogFor!!
         AlertDialog(
             onDismissRequest = { showDeleteDialogFor = null },
-            title = { Text("メモの削除") },
-            text = { Text("このメモを削除しますか？") },
+            title = { Text("削除") },
+            text = { Text("この項目を削除しますか？") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        with(sharedPref.edit()) {
-                            remove(showDeleteDialogFor.toString())
+                        val prefsName = when (itemToDelete) {
+                            is MemoItem -> "memo_prefs"
+                            is StampItem -> "stamp_prefs"
+                        }
+                        val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+                        with(prefs.edit()) {
+                            remove(itemToDelete.timestamp.toString())
                             apply()
                         }
-                        memos = getMemos(sharedPref) // Refresh the list
+                        timelineItems = getTimelineItems() // Refresh the list
                         showDeleteDialogFor = null
-                        Toast.makeText(context, "メモを削除しました", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Text("はい")
@@ -174,40 +217,32 @@ fun HomeScreen(modifier: Modifier = Modifier, onEditClick: (Long) -> Unit) {
     }
 
     LazyColumn(modifier = modifier.padding(8.dp)) {
-        if (memos.isEmpty()) {
+        if (timelineItems.isEmpty()) {
             item {
                 Text(
-                    text = "まだメモはありません。",
+                    text = "まだ記録はありません。",
                     modifier = Modifier.padding(16.dp)
                 )
             }
         } else {
-            items(memos) { (timestamp, memoText) ->
-                MemoCard(
-                    timestamp = timestamp,
-                    text = memoText,
-                    onEditClick = { onEditClick(timestamp) },
-                    onDeleteClick = { showDeleteDialogFor = timestamp }
-                )
+            items(timelineItems) { item ->
+                when (item) {
+                    is MemoItem -> MemoCard(
+                        timestamp = item.timestamp,
+                        text = item.text,
+                        onEditClick = { onEditClick(item.timestamp) },
+                        onDeleteClick = { showDeleteDialogFor = item }
+                    )
+
+                    is StampItem -> StampHistoryCard(
+                        timestamp = item.timestamp,
+                        stampType = item.type,
+                        onDeleteClick = { showDeleteDialogFor = item }
+                    )
+                }
             }
         }
     }
-}
-
-private fun getMemos(sharedPreferences: android.content.SharedPreferences): List<Pair<Long, String>> {
-    return sharedPreferences.all.mapNotNull { (key, value) ->
-        try {
-            val timestamp = key.toLong()
-            val memoText = value as? String
-            if (memoText != null) {
-                timestamp to memoText
-            } else {
-                null
-            }
-        } catch (e: NumberFormatException) {
-            null
-        }
-    }.sortedByDescending { it.first }
 }
 
 @Composable
@@ -240,6 +275,37 @@ fun MemoCard(timestamp: Long, text: String, onEditClick: () -> Unit, onDeleteCli
         }
     }
 }
+
+@Composable
+fun StampHistoryCard(timestamp: Long, stampType: StampType, onDeleteClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date(timestamp)),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(stampType.icon, contentDescription = stampType.label, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stampType.label, style = MaterialTheme.typography.bodyLarge)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDeleteClick) {
+                    Text("削除")
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () -> Unit) {
