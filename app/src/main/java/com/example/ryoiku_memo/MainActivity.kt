@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -60,10 +60,14 @@ fun RyoikumemoApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            when (currentDestination) {
+                AppDestinations.HOME -> Greeting(
+                    name = "Android",
+                    modifier = Modifier.padding(innerPadding)
+                )
+                AppDestinations.ADD_MEMO -> AddMemoScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.PROFILE -> ProfileScreen(modifier = Modifier.padding(innerPadding))
+            }
         }
     }
 }
@@ -73,7 +77,7 @@ enum class AppDestinations(
     val icon: ImageVector,
 ) {
     HOME("Home", Icons.Default.Home),
-    FAVORITES("Favorites", Icons.Default.Favorite),
+    ADD_MEMO("メモ作成", Icons.Default.Add),
     PROFILE("Profile", Icons.Default.AccountBox),
 }
 
@@ -81,6 +85,22 @@ enum class AppDestinations(
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
         text = "Hello $name!",
+        modifier = modifier
+    )
+}
+
+@Composable
+fun AddMemoScreen(modifier: Modifier = Modifier) {
+    Text(
+        text = "新しいメモを作成します。",
+        modifier = modifier
+    )
+}
+
+@Composable
+fun ProfileScreen(modifier: Modifier = Modifier) {
+    Text(
+        text = "プロフィール画面です。",
         modifier = modifier
     )
 }
