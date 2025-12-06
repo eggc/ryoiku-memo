@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -106,7 +108,7 @@ fun RyoikumemoApp() {
                     }
                 )
 
-                AppDestinations.PROFILE -> ProfileScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.SETTINGS -> SettingsScreen(modifier = Modifier.padding(innerPadding))
             }
         }
     }
@@ -118,15 +120,67 @@ enum class AppDestinations(
 ) {
     HOME("Home", Icons.Default.Home),
     ADD_MEMO("メモ作成", Icons.Default.Add),
-    PROFILE("Profile", Icons.Default.AccountBox),
+    SETTINGS("設定", Icons.Default.Settings),
 }
 
 @Composable
 fun HomeScreen(modifier: Modifier = Modifier, onEditClick: (Long) -> Unit) {
     val context = LocalContext.current
     val sharedPref = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
+    var memos by remember { mutableStateOf(getMemos(sharedPref)) }
+    var showDeleteDialogFor by remember { mutableStateOf<Long?>(null) }
 
-    val memos = sharedPref.all.mapNotNull { (key, value) ->
+    if (showDeleteDialogFor != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialogFor = null },
+            title = { Text("メモの削除") },
+            text = { Text("このメモを削除しますか？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        with(sharedPref.edit()) {
+                            remove(showDeleteDialogFor.toString())
+                            apply()
+                        }
+                        memos = getMemos(sharedPref) // Refresh the list
+                        showDeleteDialogFor = null
+                        Toast.makeText(context, "メモを削除しました", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("はい")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialogFor = null }) {
+                    Text("いいえ")
+                }
+            }
+        )
+    }
+
+    LazyColumn(modifier = modifier.padding(8.dp)) {
+        if (memos.isEmpty()) {
+            item {
+                Text(
+                    text = "まだメモはありません。",
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        } else {
+            items(memos) { (timestamp, memoText) ->
+                MemoCard(
+                    timestamp = timestamp,
+                    text = memoText,
+                    onEditClick = { onEditClick(timestamp) },
+                    onDeleteClick = { showDeleteDialogFor = timestamp }
+                )
+            }
+        }
+    }
+}
+
+private fun getMemos(sharedPreferences: android.content.SharedPreferences): List<Pair<Long, String>> {
+    return sharedPreferences.all.mapNotNull { (key, value) ->
         try {
             val timestamp = key.toLong()
             val memoText = value as? String
@@ -139,25 +193,10 @@ fun HomeScreen(modifier: Modifier = Modifier, onEditClick: (Long) -> Unit) {
             null
         }
     }.sortedByDescending { it.first }
-
-    LazyColumn(modifier = modifier.padding(8.dp)) {
-        if (memos.isEmpty()) {
-            item {
-                Text(
-                    text = "まだメモはありません。",
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        } else {
-            items(memos) { (timestamp, memoText) ->
-                MemoCard(timestamp = timestamp, text = memoText, onEditClick = { onEditClick(timestamp) })
-            }
-        }
-    }
 }
 
 @Composable
-fun MemoCard(timestamp: Long, text: String, onEditClick: () -> Unit) {
+fun MemoCard(timestamp: Long, text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -177,6 +216,10 @@ fun MemoCard(timestamp: Long, text: String, onEditClick: () -> Unit) {
             ) {
                 TextButton(onClick = onEditClick) {
                     Text("編集")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                TextButton(onClick = onDeleteClick) {
+                    Text("削除")
                 }
             }
         }
@@ -231,10 +274,10 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
 }
 
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(modifier: Modifier = Modifier) {
     Text(
-        text = "プロフィール画面です。",
-        modifier = modifier
+        text = "設定画面です。",
+        modifier = modifier.padding(16.dp)
     )
 }
 
