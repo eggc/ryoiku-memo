@@ -33,7 +33,10 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -374,6 +377,7 @@ fun StampHistoryCard(timestamp: Long, stampType: StampType, note: String, onEdit
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated: () -> Unit) {
     val context = LocalContext.current
@@ -397,6 +401,19 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
     var hour by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY).toString()) }
     var minute by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.MINUTE).toString()) }
     var note by rememberSaveable { mutableStateOf(initialNote) }
+
+    fun getNoteSuggestions(): List<String> {
+        return sharedPref.all.values
+            .mapNotNull { it as? String }
+            .map { it.split('|', limit = 2) }
+            .filter { it.size > 1 && it[1].isNotBlank() }
+            .map { it[1] }
+            .distinct()
+            .take(10)
+    }
+
+    val suggestions = remember { getNoteSuggestions() }
+    var expanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -433,12 +450,33 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        TextField(
-            value = note,
-            onValueChange = { note = it },
-            label = { Text("一言メモ") },
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
             modifier = Modifier.fillMaxWidth()
-        )
+        ) {
+            TextField(
+                value = note,
+                onValueChange = { note = it },
+                label = { Text("一言メモ") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor() // Important for accessibility
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                suggestions.forEach { selectionOption ->
+                    DropdownMenuItem(
+                        text = { Text(selectionOption) },
+                        onClick = {
+                            note = selectionOption
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
@@ -599,7 +637,8 @@ fun StampScreen(modifier: Modifier = Modifier, onStampSaved: () -> Unit) {
                 onClick = {
                     val sharedPref = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
                     with(sharedPref.edit()) {
-                        putString(System.currentTimeMillis().toString(), stampType.name)
+                        // Persist with an empty note field for consistency
+                        putString(System.currentTimeMillis().toString(), "${stampType.name}|")
                         apply()
                     }
                     Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
