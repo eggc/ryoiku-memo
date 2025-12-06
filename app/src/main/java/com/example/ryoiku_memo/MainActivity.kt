@@ -105,6 +105,7 @@ data class StampItem(
 @Composable
 fun RyoikumemoApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TIMELINE) }
+    var editingDiaryDate by rememberSaveable { mutableStateOf<String?>(null) }
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     NavigationSuiteScaffold(
@@ -122,6 +123,9 @@ fun RyoikumemoApp() {
                     onClick = {
                         currentDestination = dest
                         editingStampId = null
+                        if (dest == AppDestinations.DIARY) {
+                            editingDiaryDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        }
                     }
                 )
             }
@@ -136,6 +140,10 @@ fun RyoikumemoApp() {
             when (currentDestination) {
                 AppDestinations.TIMELINE -> TimelineScreen(
                     modifier = Modifier.padding(innerPadding),
+                    onEditDiaryClick = { date ->
+                        editingDiaryDate = date
+                        currentDestination = AppDestinations.DIARY
+                    },
                     onEditStampClick = { stampId ->
                         editingStampId = stampId
                         currentDestination = AppDestinations.EDIT_STAMP
@@ -144,8 +152,10 @@ fun RyoikumemoApp() {
 
                 AppDestinations.DIARY -> DiaryScreen(
                     modifier = Modifier.padding(innerPadding),
+                    date = editingDiaryDate!!,
                     onDiarySaved = {
                         currentDestination = AppDestinations.TIMELINE
+                        editingDiaryDate = null
                     }
                 )
 
@@ -184,6 +194,7 @@ enum class AppDestinations(
 @Composable
 fun TimelineScreen(
     modifier: Modifier = Modifier,
+    onEditDiaryClick: (String) -> Unit,
     onEditStampClick: (Long) -> Unit
 ) {
     val context = LocalContext.current
@@ -284,8 +295,8 @@ fun TimelineScreen(
                     Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                         when (item) {
                             is DiaryItem -> DiaryCard(
-                                timestamp = item.timestamp,
                                 text = item.text,
+                                onEditClick = { onEditDiaryClick(item.date) },
                                 onDeleteClick = { showDeleteDialogFor = item }
                             )
 
@@ -305,7 +316,7 @@ fun TimelineScreen(
 }
 
 @Composable
-fun DiaryCard(timestamp: Long, text: String, onDeleteClick: () -> Unit) {
+fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -323,6 +334,10 @@ fun DiaryCard(timestamp: Long, text: String, onDeleteClick: () -> Unit) {
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                TextButton(onClick = onEditClick) {
+                    Text("編集")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 TextButton(onClick = onDeleteClick) {
                     Text("削除")
                 }
@@ -506,14 +521,17 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
 }
 
 @Composable
-fun DiaryScreen(modifier: Modifier = Modifier, onDiarySaved: () -> Unit) {
+fun DiaryScreen(modifier: Modifier = Modifier, date: String, onDiarySaved: () -> Unit) {
     val context = LocalContext.current
     val sharedPref = context.getSharedPreferences("diary_prefs", Context.MODE_PRIVATE)
-    val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
-    val initialText = remember {
-        sharedPref.getString(today, "") ?: ""
-    }
+    val initialDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
+    var year by rememberSaveable { mutableStateOf(initialDate.year.toString()) }
+    var month by rememberSaveable { mutableStateOf(initialDate.monthValue.toString()) }
+    var day by rememberSaveable { mutableStateOf(initialDate.dayOfMonth.toString()) }
+
+    val initialText = remember(date) { sharedPref.getString(date, "") ?: "" }
     var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
 
     Column(
@@ -521,7 +539,16 @@ fun DiaryScreen(modifier: Modifier = Modifier, onDiarySaved: () -> Unit) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text("今日の日記 (${today})", style = MaterialTheme.typography.headlineSmall)
+        Text("日記の編集", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            TextField(value = year, onValueChange = { year = it }, label = { Text("年") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Spacer(modifier = Modifier.width(8.dp))
+            TextField(value = month, onValueChange = { month = it }, label = { Text("月") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Spacer(modifier = Modifier.width(8.dp))
+            TextField(value = day, onValueChange = { day = it }, label = { Text("日") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         TextField(
@@ -529,7 +556,7 @@ fun DiaryScreen(modifier: Modifier = Modifier, onDiarySaved: () -> Unit) {
             onValueChange = { text = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f), // Takes up the remaining space
+                .weight(1f),
             label = { Text("内容") }
         )
 
@@ -537,12 +564,26 @@ fun DiaryScreen(modifier: Modifier = Modifier, onDiarySaved: () -> Unit) {
 
         Button(
             onClick = {
-                with(sharedPref.edit()) {
-                    putString(today, text)
-                    apply()
+                try {
+                    val newDateStr = LocalDate.of(year.toInt(), month.toInt(), day.toInt()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
+                    if (newDateStr != date && sharedPref.contains(newDateStr)) {
+                        Toast.makeText(context, "その日付の日記はすでに存在します", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    with(sharedPref.edit()) {
+                        if (newDateStr != date) {
+                            remove(date)
+                        }
+                        putString(newDateStr, text)
+                        apply()
+                    }
+                    Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
+                    onDiarySaved()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "日付の入力に誤りがあります", Toast.LENGTH_SHORT).show()
                 }
-                Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
-                onDiarySaved()
             },
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -550,6 +591,7 @@ fun DiaryScreen(modifier: Modifier = Modifier, onDiarySaved: () -> Unit) {
         }
     }
 }
+
 
 enum class StampType(val label: String, val icon: ImageVector) {
     SLEEP("ねる", Icons.Default.Bedtime),
@@ -620,6 +662,6 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 @Composable
 fun TimelineScreenPreview() {
     RyoikumemoTheme {
-        TimelineScreen(onEditStampClick = {})
+        TimelineScreen(onEditDiaryClick = {}, onEditStampClick = {})
     }
 }
