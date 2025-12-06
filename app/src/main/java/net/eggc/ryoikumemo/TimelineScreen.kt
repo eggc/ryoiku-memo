@@ -170,7 +170,7 @@ fun TimelineScreen(
                         stickyHeader {
                             Surface(modifier = Modifier.fillParentMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
                                 Text(
-                                    text = date.format(DateTimeFormatter.ofPattern("M月d日")),
+                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
                                     style = MaterialTheme.typography.titleSmall,
                                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                                 )
