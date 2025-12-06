@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,14 +15,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -116,6 +120,7 @@ fun RyoikumemoApp() {
                         editingMemoId = null
                     }
                 )
+
                 AppDestinations.STAMP -> StampScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.SETTINGS -> SettingsScreen(modifier = Modifier.padding(innerPadding))
             }
@@ -283,13 +288,58 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
     }
 }
 
+enum class StampType(val label: String, val icon: ImageVector) {
+    SLEEP("ねる", Icons.Default.Bedtime),
+    WAKE_UP("おきる", Icons.Default.WbSunny)
+}
+
 @Composable
 fun StampScreen(modifier: Modifier = Modifier) {
-    Text(
-        text = "スタンプ画面です。",
-        modifier = modifier.padding(16.dp)
-    )
+    val context = LocalContext.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        StampType.entries.forEach { stampType ->
+            StampCard(
+                label = stampType.label,
+                icon = stampType.icon,
+                onClick = {
+                    val sharedPref = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
+                    with(sharedPref.edit()) {
+                        putString(System.currentTimeMillis().toString(), stampType.name)
+                        apply()
+                    }
+                    Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
 }
+
+@Composable
+fun StampCard(label: String, icon: ImageVector, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = label, style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
