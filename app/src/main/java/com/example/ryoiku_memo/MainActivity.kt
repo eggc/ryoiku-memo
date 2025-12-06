@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -56,6 +58,9 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import com.example.ryoiku_memo.ui.theme.RyoikumemoTheme
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -175,6 +180,7 @@ enum class AppDestinations(
     EDIT_STAMP("スタンプ編集", null)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TimelineScreen(
     modifier: Modifier = Modifier,
@@ -242,8 +248,12 @@ fun TimelineScreen(
         )
     }
 
-    LazyColumn(modifier = modifier.padding(8.dp)) {
-        if (timelineItems.isEmpty()) {
+    val groupedItems = timelineItems.groupBy {
+        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+    }
+
+    LazyColumn(modifier = modifier) {
+        if (groupedItems.isEmpty()) {
             item {
                 Text(
                     text = "まだ記録はありません。",
@@ -251,21 +261,34 @@ fun TimelineScreen(
                 )
             }
         } else {
-            items(timelineItems) { item ->
-                when (item) {
-                    is MemoItem -> MemoCard(
-                        timestamp = item.timestamp,
-                        text = item.text,
-                        onEditClick = { onEditMemoClick(item.timestamp) },
-                        onDeleteClick = { showDeleteDialogFor = item }
-                    )
+            groupedItems.forEach { (date, items) ->
+                stickyHeader {
+                    Surface(modifier = Modifier.fillParentMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
+                        Text(
+                            text = date.format(DateTimeFormatter.ofPattern("M月d日")),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                        )
+                    }
+                }
+                items(items, key = { it.timestamp }) { item ->
+                    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                        when (item) {
+                            is MemoItem -> MemoCard(
+                                timestamp = item.timestamp,
+                                text = item.text,
+                                onEditClick = { onEditMemoClick(item.timestamp) },
+                                onDeleteClick = { showDeleteDialogFor = item }
+                            )
 
-                    is StampItem -> StampHistoryCard(
-                        timestamp = item.timestamp,
-                        stampType = item.type,
-                        onEditClick = { onEditStampClick(item.timestamp) },
-                        onDeleteClick = { showDeleteDialogFor = item }
-                    )
+                            is StampItem -> StampHistoryCard(
+                                timestamp = item.timestamp,
+                                stampType = item.type,
+                                onEditClick = { onEditStampClick(item.timestamp) },
+                                onDeleteClick = { showDeleteDialogFor = item }
+                            )
+                        }
+                    }
                 }
             }
         }
