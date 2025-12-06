@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
@@ -551,7 +552,8 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
 enum class StampType(val label: String, val icon: ImageVector) {
     SLEEP("ねる", Icons.Default.Bedtime),
     WAKE_UP("おきる", Icons.Default.WbSunny),
-    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied)
+    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied),
+    MEDICATION("おくすり", Icons.Default.Medication)
 }
 
 @Composable
