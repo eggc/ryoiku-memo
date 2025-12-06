@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -115,7 +116,7 @@ fun RyoikumemoApp() {
                         editingMemoId = null
                     }
                 )
-
+                AppDestinations.STAMP -> StampScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.SETTINGS -> SettingsScreen(modifier = Modifier.padding(innerPadding))
             }
         }
@@ -128,6 +129,7 @@ enum class AppDestinations(
 ) {
     HOME("Home", Icons.Default.Home),
     ADD_MEMO("メモ作成", Icons.Default.Add),
+    STAMP("スタンプ", Icons.Default.AccessTime),
     SETTINGS("設定", Icons.Default.Settings),
 }
 
@@ -279,6 +281,14 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
             Text("確定")
         }
     }
+}
+
+@Composable
+fun StampScreen(modifier: Modifier = Modifier) {
+    Text(
+        text = "スタンプ画面です。",
+        modifier = modifier.padding(16.dp)
+    )
 }
 
 @Composable
