@@ -61,6 +61,8 @@ dependencies {
     // Google Play Services
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

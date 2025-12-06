@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -61,14 +62,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.auth
+import coil.compose.AsyncImage
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.auth
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -123,6 +131,7 @@ fun RyoikumemoApp() {
     var editingDiaryDate by rememberSaveable { mutableStateOf<String?>(null) }
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
+    val currentUser = Firebase.auth.currentUser
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -150,7 +159,23 @@ fun RyoikumemoApp() {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                TopAppBar(title = { Text("療育メモ") })
+                TopAppBar(
+                    title = { Text("療育メモ") },
+                    actions = {
+                        if (currentUser != null) {
+                            AsyncImage(
+                                model = currentUser.photoUrl,
+                                contentDescription = "User profile picture",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                                error = painterResource(id = R.drawable.ic_launcher_foreground),
+                                placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
+                            )
+                        }
+                    }
+                )
             }
         ) { innerPadding ->
             when (currentDestination) {
@@ -191,8 +216,14 @@ fun RyoikumemoApp() {
 
                 AppDestinations.SETTINGS -> SettingsScreen(
                     modifier = Modifier.padding(innerPadding),
+                    currentUser = currentUser,
                     onLogoutClick = {
                         Firebase.auth.signOut()
+                        val intent = Intent(context, AuthActivity::class.java)
+                        (context as? Activity)?.startActivity(intent)
+                        (context as? Activity)?.finish()
+                    },
+                    onLoginClick = {
                         val intent = Intent(context, AuthActivity::class.java)
                         (context as? Activity)?.startActivity(intent)
                         (context as? Activity)?.finish()
@@ -716,15 +747,54 @@ fun StampCard(label: String, icon: ImageVector, onClick: () -> Unit) {
 
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, onLogoutClick: () -> Unit) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier, 
+    currentUser: FirebaseUser?, 
+    onLogoutClick: () -> Unit,
+    onLoginClick: () -> Unit
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Button(onClick = onLogoutClick) {
-            Text("ログアウト")
+        if (currentUser != null) {
+            AsyncImage(
+                model = currentUser.photoUrl,
+                contentDescription = "User profile picture",
+                modifier = Modifier
+                    .size(128.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                error = painterResource(id = R.drawable.ic_launcher_foreground),
+                placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = currentUser.displayName ?: "",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = currentUser.email ?: "",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(onClick = onLogoutClick) {
+                Text("ログアウト")
+            }
+        } else {
+            Text(
+                text = "ログインしていません",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onLoginClick) {
+                Text("ログイン画面に戻る")
+            }
         }
     }
 }
