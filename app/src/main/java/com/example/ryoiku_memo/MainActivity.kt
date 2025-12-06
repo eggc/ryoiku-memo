@@ -24,9 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -91,7 +91,7 @@ data class StampItem(
 @PreviewScreenSizes
 @Composable
 fun RyoikumemoApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TIMELINE) }
     var editingMemoId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
 
@@ -123,7 +123,7 @@ fun RyoikumemoApp() {
             }
         ) { innerPadding ->
             when (currentDestination) {
-                AppDestinations.HOME -> HomeScreen(
+                AppDestinations.TIMELINE -> TimelineScreen(
                     modifier = Modifier.padding(innerPadding),
                     onEditMemoClick = { memoId ->
                         editingMemoId = memoId
@@ -139,21 +139,21 @@ fun RyoikumemoApp() {
                     modifier = Modifier.padding(innerPadding),
                     memoId = editingMemoId,
                     onMemoSaved = {
-                        currentDestination = AppDestinations.HOME
+                        currentDestination = AppDestinations.TIMELINE
                         editingMemoId = null
                     }
                 )
 
                 AppDestinations.STAMP -> StampScreen(
                     modifier = Modifier.padding(innerPadding),
-                    onStampSaved = { currentDestination = AppDestinations.HOME }
+                    onStampSaved = { currentDestination = AppDestinations.TIMELINE }
                 )
 
                 AppDestinations.EDIT_STAMP -> EditStampScreen(
                     modifier = Modifier.padding(innerPadding),
                     stampId = editingStampId!!,
                     onStampUpdated = {
-                        currentDestination = AppDestinations.HOME
+                        currentDestination = AppDestinations.TIMELINE
                         editingStampId = null
                     }
                 )
@@ -168,7 +168,7 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector?,
 ) {
-    HOME("Home", Icons.Default.Home),
+    TIMELINE("タイムライン", Icons.Default.Timeline),
     ADD_MEMO("メモ作成", Icons.Default.Add),
     STAMP("スタンプ", Icons.Default.AccessTime),
     SETTINGS("設定", Icons.Default.Settings),
@@ -176,7 +176,7 @@ enum class AppDestinations(
 }
 
 @Composable
-fun HomeScreen(
+fun TimelineScreen(
     modifier: Modifier = Modifier,
     onEditMemoClick: (Long) -> Unit,
     onEditStampClick: (Long) -> Unit
@@ -427,6 +427,9 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
     val context = LocalContext.current
     val sharedPref = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
 
+    val initialTimestamp = memoId ?: System.currentTimeMillis()
+    val initialCalendar = Calendar.getInstance().apply { timeInMillis = initialTimestamp }
+
     val initialText = remember(memoId) {
         if (memoId != null) {
             sharedPref.getString(memoId.toString(), "") ?: ""
@@ -436,33 +439,86 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
     }
     var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
 
-    Column(modifier = modifier) {
+    var year by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.YEAR).toString()) }
+    var month by rememberSaveable { mutableStateOf((initialCalendar.get(Calendar.MONTH) + 1).toString()) }
+    var day by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.DAY_OF_MONTH).toString()) }
+    var hour by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY).toString()) }
+    var minute by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.MINUTE).toString()) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            if (memoId == null) "メモ作成" else "メモ編集",
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Date Fields
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            TextField(value = year, onValueChange = { year = it }, label = { Text("年") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Spacer(modifier = Modifier.width(8.dp))
+            TextField(value = month, onValueChange = { month = it }, label = { Text("月") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Spacer(modifier = Modifier.width(8.dp))
+            TextField(value = day, onValueChange = { day = it }, label = { Text("日") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Time Fields
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            TextField(value = hour, onValueChange = { hour = it }, label = { Text("時") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            Spacer(modifier = Modifier.width(8.dp))
+            TextField(value = minute, onValueChange = { minute = it }, label = { Text("分") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Memo content field
         TextField(
             value = text,
             onValueChange = { text = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp)
-                .weight(1f),
+                .weight(1f), // Takes up the remaining space
             label = { Text("メモ内容") }
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Button(
             onClick = {
                 if (text.isNotBlank()) {
-                    with(sharedPref.edit()) {
-                        val key = (memoId ?: System.currentTimeMillis()).toString()
-                        putString(key, text)
-                        apply()
+                    val newCalendar = Calendar.getInstance()
+                    try {
+                        newCalendar.set(
+                            year.toInt(),
+                            month.toInt() - 1,
+                            day.toInt(),
+                            hour.toInt(),
+                            minute.toInt()
+                        )
+                        val newTimestamp = newCalendar.timeInMillis
+
+                        with(sharedPref.edit()) {
+                            if (memoId != null) {
+                                remove(memoId.toString())
+                            }
+                            putString(newTimestamp.toString(), text)
+                            apply()
+                        }
+                        Toast.makeText(context, "メモを保存しました", Toast.LENGTH_SHORT).show()
+                        onMemoSaved()
+
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "日時の入力に誤りがあります", Toast.LENGTH_SHORT).show()
                     }
-                    Toast.makeText(context, "メモを保存しました", Toast.LENGTH_SHORT).show()
-                    onMemoSaved()
                 } else {
                     Toast.makeText(context, "メモ内容が空です", Toast.LENGTH_SHORT).show()
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text("確定")
         }
@@ -534,8 +590,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun TimelineScreenPreview() {
     RyoikumemoTheme {
-        HomeScreen(onEditMemoClick = {}, onEditStampClick = {})
+        TimelineScreen(onEditMemoClick = {}, onEditStampClick = {})
     }
 }
