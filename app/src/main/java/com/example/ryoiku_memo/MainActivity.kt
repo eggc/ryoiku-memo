@@ -194,7 +194,7 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
-    DIARY("今日の日記", Icons.Default.Book),
+    DIARY("日記", Icons.Default.Book),
     STAMP("スタンプ", Icons.Default.AccessTime),
     SETTINGS("設定", Icons.Default.Settings),
     EDIT_STAMP("スタンプ編集", null)
