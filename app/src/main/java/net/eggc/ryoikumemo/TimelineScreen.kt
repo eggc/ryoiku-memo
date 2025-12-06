@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -210,10 +212,18 @@ fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) 
             .padding(vertical = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "日記",
-                style = MaterialTheme.typography.bodySmall
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Book,
+                    contentDescription = "日記",
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "日記",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = text, style = MaterialTheme.typography.bodyLarge)
             Row(
