@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
@@ -136,7 +137,10 @@ fun RyoikumemoApp() {
                     }
                 )
 
-                AppDestinations.STAMP -> StampScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.STAMP -> StampScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onStampSaved = { currentDestination = AppDestinations.HOME }
+                )
                 AppDestinations.SETTINGS -> SettingsScreen(modifier = Modifier.padding(innerPadding))
             }
         }
@@ -356,11 +360,12 @@ fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () 
 
 enum class StampType(val label: String, val icon: ImageVector) {
     SLEEP("ねる", Icons.Default.Bedtime),
-    WAKE_UP("おきる", Icons.Default.WbSunny)
+    WAKE_UP("おきる", Icons.Default.WbSunny),
+    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied)
 }
 
 @Composable
-fun StampScreen(modifier: Modifier = Modifier) {
+fun StampScreen(modifier: Modifier = Modifier, onStampSaved: () -> Unit) {
     val context = LocalContext.current
     Column(
         modifier = modifier
@@ -380,6 +385,7 @@ fun StampScreen(modifier: Modifier = Modifier) {
                         apply()
                     }
                     Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                    onStampSaved()
                 }
             )
         }
