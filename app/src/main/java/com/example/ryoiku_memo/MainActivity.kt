@@ -6,7 +6,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
@@ -32,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -59,6 +63,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun RyoikumemoApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var editingMemoId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -72,7 +77,12 @@ fun RyoikumemoApp() {
                     },
                     label = { Text(it.label) },
                     selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    onClick = {
+                        currentDestination = it
+                        if (it == AppDestinations.ADD_MEMO) {
+                            editingMemoId = null
+                        }
+                    }
                 )
             }
         }
@@ -80,12 +90,21 @@ fun RyoikumemoApp() {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
                 AppDestinations.HOME -> HomeScreen(
-                    modifier = Modifier.padding(innerPadding)
+                    modifier = Modifier.padding(innerPadding),
+                    onEditClick = { memoId ->
+                        editingMemoId = memoId
+                        currentDestination = AppDestinations.ADD_MEMO
+                    }
                 )
 
-                AppDestinations.ADD_MEMO -> AddMemoScreen(modifier = Modifier.padding(innerPadding)) {
-                    currentDestination = AppDestinations.HOME
-                }
+                AppDestinations.ADD_MEMO -> AddMemoScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    memoId = editingMemoId,
+                    onMemoSaved = {
+                        currentDestination = AppDestinations.HOME
+                        editingMemoId = null
+                    }
+                )
 
                 AppDestinations.PROFILE -> ProfileScreen(modifier = Modifier.padding(innerPadding))
             }
@@ -103,7 +122,7 @@ enum class AppDestinations(
 }
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(modifier: Modifier = Modifier, onEditClick: (Long) -> Unit) {
     val context = LocalContext.current
     val sharedPref = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
 
@@ -131,14 +150,14 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             }
         } else {
             items(memos) { (timestamp, memoText) ->
-                MemoCard(timestamp = timestamp, text = memoText)
+                MemoCard(timestamp = timestamp, text = memoText, onEditClick = { onEditClick(timestamp) })
             }
         }
     }
 }
 
 @Composable
-fun MemoCard(timestamp: Long, text: String) {
+fun MemoCard(timestamp: Long, text: String, onEditClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -151,14 +170,32 @@ fun MemoCard(timestamp: Long, text: String) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = text, style = MaterialTheme.typography.bodyLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onEditClick) {
+                    Text("編集")
+                }
+            }
         }
     }
 }
 
 @Composable
-fun AddMemoScreen(modifier: Modifier = Modifier, onMemoSaved: () -> Unit) {
-    var text by remember { mutableStateOf("") }
+fun AddMemoScreen(modifier: Modifier = Modifier, memoId: Long?, onMemoSaved: () -> Unit) {
     val context = LocalContext.current
+    val sharedPref = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
+
+    val initialText = remember(memoId) {
+        if (memoId != null) {
+            sharedPref.getString(memoId.toString(), "") ?: ""
+        } else {
+            ""
+        }
+    }
+    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
 
     Column(modifier = modifier) {
         TextField(
@@ -173,9 +210,9 @@ fun AddMemoScreen(modifier: Modifier = Modifier, onMemoSaved: () -> Unit) {
         Button(
             onClick = {
                 if (text.isNotBlank()) {
-                    val sharedPref = context.getSharedPreferences("memo_prefs", Context.MODE_PRIVATE)
                     with(sharedPref.edit()) {
-                        putString(System.currentTimeMillis().toString(), text)
+                        val key = (memoId ?: System.currentTimeMillis()).toString()
+                        putString(key, text)
                         apply()
                     }
                     Toast.makeText(context, "メモを保存しました", Toast.LENGTH_SHORT).show()
@@ -205,6 +242,6 @@ fun ProfileScreen(modifier: Modifier = Modifier) {
 @Composable
 fun GreetingPreview() {
     RyoikumemoTheme {
-        HomeScreen()
+        HomeScreen(onEditClick = {})
     }
 }
