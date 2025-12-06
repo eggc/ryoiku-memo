@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -64,13 +66,17 @@ fun TimelineScreen(
     var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var currentFilter by remember { mutableStateOf<TimelineFilter>(TimelineFilter.All) }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
+        isLoading = true
         try {
             timelineItems = timelineRepository.getTimelineItems()
         } catch (e: Exception) {
             Log.e("TimelineScreen", "Failed to load timeline items", e)
             Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+        } finally {
+            isLoading = false
         }
     }
 
@@ -146,42 +152,47 @@ fun TimelineScreen(
                 )
             }
         }
-
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            if (groupedItems.isEmpty()) {
-                item {
-                    Text(
-                        text = if (currentFilter == TimelineFilter.All) "まだ記録はありません。" else "この条件の記録はありません。",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else {
-                groupedItems.forEach { (date, items) ->
-                    stickyHeader {
-                        Surface(modifier = Modifier.fillParentMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
-                            Text(
-                                text = date.format(DateTimeFormatter.ofPattern("M月d日")),
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                            )
-                        }
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (groupedItems.isEmpty()) {
+                    item {
+                        Text(
+                            text = if (currentFilter == TimelineFilter.All) "まだ記録はありません。" else "この条件の記録はありません。",
+                            modifier = Modifier.padding(16.dp)
+                        )
                     }
-                    items(items, key = { it.timestamp }) { item ->
-                        Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                            when (item) {
-                                is DiaryItem -> DiaryCard(
-                                    text = item.text,
-                                    onEditClick = { onEditDiaryClick(item.date) },
-                                    onDeleteClick = { showDeleteDialogFor = item }
+                } else {
+                    groupedItems.forEach { (date, items) ->
+                        stickyHeader {
+                            Surface(modifier = Modifier.fillParentMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
+                                Text(
+                                    text = date.format(DateTimeFormatter.ofPattern("M月d日")),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                                 )
+                            }
+                        }
+                        items(items, key = { it.timestamp }) { item ->
+                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                when (item) {
+                                    is DiaryItem -> DiaryCard(
+                                        text = item.text,
+                                        onEditClick = { onEditDiaryClick(item.date) },
+                                        onDeleteClick = { showDeleteDialogFor = item }
+                                    )
 
-                                is StampItem -> StampHistoryCard(
-                                    timestamp = item.timestamp,
-                                    stampType = item.type,
-                                    note = item.note,
-                                    onEditClick = { onEditStampClick(item.timestamp) },
-                                    onDeleteClick = { showDeleteDialogFor = item }
-                                )
+                                    is StampItem -> StampHistoryCard(
+                                        timestamp = item.timestamp,
+                                        stampType = item.type,
+                                        note = item.note,
+                                        onEditClick = { onEditStampClick(item.timestamp) },
+                                        onDeleteClick = { showDeleteDialogFor = item }
+                                    )
+                                }
                             }
                         }
                     }
