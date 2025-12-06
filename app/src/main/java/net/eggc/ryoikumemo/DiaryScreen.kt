@@ -17,9 +17,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -27,15 +29,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DiaryScreen(modifier: Modifier = Modifier, date: String, timelineRepository: TimelineRepository, onDiarySaved: () -> Unit) {
+fun DiaryScreen(
+    modifier: Modifier = Modifier,
+    date: String,
+    timelineRepository: TimelineRepository,
+    onDiarySaved: () -> Unit
+) {
     val context = LocalContext.current
-    val sharedPref = context.getSharedPreferences("diary_prefs", Context.MODE_PRIVATE)
+    val coroutineScope = rememberCoroutineScope()
 
     val initialDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
@@ -43,8 +51,14 @@ fun DiaryScreen(modifier: Modifier = Modifier, date: String, timelineRepository:
     var month by rememberSaveable { mutableStateOf(initialDate.monthValue.toString()) }
     var day by rememberSaveable { mutableStateOf(initialDate.dayOfMonth.toString()) }
 
-    val initialText = remember(date) { sharedPref.getString(date, "") ?: "" }
-    var text by rememberSaveable(initialText) { mutableStateOf(initialText) }
+    var text by remember { mutableStateOf("") }
+
+    LaunchedEffect(date) {
+        val diaryItem = timelineRepository.getTimelineItems().find { it is net.eggc.ryoikumemo.data.DiaryItem && it.date == date }
+        if (diaryItem != null) {
+            text = (diaryItem as net.eggc.ryoikumemo.data.DiaryItem).text
+        }
+    }
 
     Column(
         modifier = modifier
@@ -76,19 +90,15 @@ fun DiaryScreen(modifier: Modifier = Modifier, date: String, timelineRepository:
 
         Button(
             onClick = {
-                try {
-                    val newDateStr = LocalDate.of(year.toInt(), month.toInt(), day.toInt()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-
-                    if (newDateStr != date && sharedPref.contains(newDateStr)) {
-                        Toast.makeText(context, "その日付の日記はすでに存在します", Toast.LENGTH_SHORT).show()
-                        return@Button
+                coroutineScope.launch {
+                    try {
+                        val newDateStr = LocalDate.of(year.toInt(), month.toInt(), day.toInt()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        timelineRepository.saveDiary(newDateStr, text)
+                        Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
+                        onDiarySaved()
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "日付の入力に誤りがあります", Toast.LENGTH_SHORT).show()
                     }
-
-                    timelineRepository.saveDiary(newDateStr, text)
-                    Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
-                    onDiarySaved()
-                } catch (e: Exception) {
-                    Toast.makeText(context, "日付の入力に誤りがあります", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier.fillMaxWidth()

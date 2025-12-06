@@ -15,17 +15,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineRepository
 
 @Composable
 fun StampScreen(modifier: Modifier = Modifier, timelineRepository: TimelineRepository, onStampSaved: () -> Unit) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -38,9 +41,11 @@ fun StampScreen(modifier: Modifier = Modifier, timelineRepository: TimelineRepos
                 label = stampType.label,
                 icon = stampType.icon,
                 onClick = {
-                    timelineRepository.saveStamp(stampType, "")
-                    Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
-                    onStampSaved()
+                    coroutineScope.launch {
+                        timelineRepository.saveStamp(stampType, "")
+                        Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                        onStampSaved()
+                    }
                 }
             )
         }

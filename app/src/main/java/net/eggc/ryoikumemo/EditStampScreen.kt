@@ -22,9 +22,11 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,15 +34,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import net.eggc.ryoikumemo.data.StampType
+import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, timelineRepository: TimelineRepository, onStampUpdated: () -> Unit) {
+fun EditStampScreen(
+    modifier: Modifier = Modifier,
+    stampId: Long,
+    timelineRepository: TimelineRepository,
+    onStampUpdated: () -> Unit
+) {
     val context = LocalContext.current
-    val stampItem = timelineRepository.getTimelineItems().find { it.timestamp == stampId } as? net.eggc.ryoikumemo.data.StampItem
+    val coroutineScope = rememberCoroutineScope()
+    var stampItem by remember { mutableStateOf<StampItem?>(null) }
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(stampId) {
+        stampItem = timelineRepository.getTimelineItems().find { it.timestamp == stampId } as? StampItem
+        suggestions = timelineRepository.getTimelineItems()
+            .filterIsInstance<StampItem>()
+            .map { it.note }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(10)
+    }
 
     if (stampItem == null) {
         Text("エラー: スタンプが見つかりません", modifier = modifier.padding(16.dp))
@@ -54,16 +74,8 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, timelineReposi
     var day by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.DAY_OF_MONTH).toString()) }
     var hour by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY).toString()) }
     var minute by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.MINUTE).toString()) }
-    var note by rememberSaveable { mutableStateOf(stampItem.note) }
+    var note by rememberSaveable(stampItem?.note) { mutableStateOf(stampItem?.note ?: "") }
 
-    val suggestions = remember {
-        timelineRepository.getTimelineItems()
-            .filterIsInstance<net.eggc.ryoikumemo.data.StampItem>()
-            .map { it.note }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .take(10)
-    }
     var expanded by remember { mutableStateOf(false) }
 
     Column(
@@ -75,9 +87,9 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, timelineReposi
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(stampItem.type.icon, contentDescription = null, modifier = Modifier.size(40.dp))
+            Icon(stampItem!!.type.icon, contentDescription = null, modifier = Modifier.size(40.dp))
             Spacer(modifier = Modifier.width(16.dp))
-            Text(stampItem.type.label, style = MaterialTheme.typography.titleLarge)
+            Text(stampItem!!.type.label, style = MaterialTheme.typography.titleLarge)
         }
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -132,24 +144,25 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, timelineReposi
         Spacer(modifier = Modifier.weight(1f))
 
         Button(onClick = {
-            val newCalendar = Calendar.getInstance()
-            try {
-                newCalendar.set(
-                    year.toInt(),
-                    month.toInt() - 1, // Calendar.MONTH is 0-indexed
-                    day.toInt(),
-                    hour.toInt(),
-                    minute.toInt()
-                )
-                val newTimestamp = newCalendar.timeInMillis
+            coroutineScope.launch {
+                val newCalendar = Calendar.getInstance()
+                try {
+                    newCalendar.set(
+                        year.toInt(),
+                        month.toInt() - 1, // Calendar.MONTH is 0-indexed
+                        day.toInt(),
+                        hour.toInt(),
+                        minute.toInt()
+                    )
 
-                timelineRepository.deleteTimelineItem(stampItem)
-                timelineRepository.saveStamp(stampItem.type, note)
-                Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
-                onStampUpdated()
+                    timelineRepository.deleteTimelineItem(stampItem!!)
+                    timelineRepository.saveStamp(stampItem!!.type, note)
+                    Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
+                    onStampUpdated()
 
-            } catch (e: Exception) {
-                Toast.makeText(context, "日時の入力に誤りがあります", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "日時の入力に誤りがあります", Toast.LENGTH_SHORT).show()
+                }
             }
         }) {
             Text("保存")

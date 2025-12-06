@@ -1,5 +1,6 @@
 package net.eggc.ryoikumemo
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
@@ -26,14 +27,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.DiaryItem
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
@@ -56,10 +60,19 @@ fun TimelineScreen(
     onEditStampClick: (Long) -> Unit
 ) {
     val context = LocalContext.current
-    var timelineItems by remember { mutableStateOf(timelineRepository.getTimelineItems()) }
+    val coroutineScope = rememberCoroutineScope()
+    var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var currentFilter by remember { mutableStateOf<TimelineFilter>(TimelineFilter.All) }
 
+    LaunchedEffect(Unit) {
+        try {
+            timelineItems = timelineRepository.getTimelineItems()
+        } catch (e: Exception) {
+            Log.e("TimelineScreen", "Failed to load timeline items", e)
+            Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     if (showDeleteDialogFor != null) {
         val itemToDelete = showDeleteDialogFor!!
@@ -70,10 +83,17 @@ fun TimelineScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        timelineRepository.deleteTimelineItem(itemToDelete)
-                        timelineItems = timelineRepository.getTimelineItems() // Refresh the list
-                        showDeleteDialogFor = null
-                        Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
+                        coroutineScope.launch {
+                            try {
+                                timelineRepository.deleteTimelineItem(itemToDelete)
+                                timelineItems = timelineRepository.getTimelineItems() // Refresh the list
+                                showDeleteDialogFor = null
+                                Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Log.e("TimelineScreen", "Failed to delete timeline item", e)
+                                Toast.makeText(context, "データの削除に失敗しました", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 ) {
                     Text("はい")

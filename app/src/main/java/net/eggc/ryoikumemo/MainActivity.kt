@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesTimelineRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.time.LocalDate
@@ -64,7 +65,13 @@ fun RyoikumemoApp() {
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
     val currentUser = Firebase.auth.currentUser
-    val timelineRepository = remember { SharedPreferencesTimelineRepository(context) }
+    val timelineRepository = remember {
+        if (currentUser != null) {
+            FirestoreTimelineRepository()
+        } else {
+            SharedPreferencesTimelineRepository(context)
+        }
+    }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {

@@ -2,12 +2,10 @@ package net.eggc.ryoikumemo
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -20,43 +18,40 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.google.android.gms.auth.api.identity.Identity
-import com.google.android.gms.auth.api.identity.SignInClient
-import com.google.android.gms.common.api.ApiException
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.lifecycle.lifecycleScope
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
+import java.util.UUID
 
 class AuthActivity : ComponentActivity() {
 
-    private lateinit var oneTapClient: SignInClient
     private lateinit var auth: FirebaseAuth
-
-    private val signInLauncher: ActivityResultLauncher<IntentSenderRequest> =
-        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-            try {
-                val credential = oneTapClient.getSignInCredentialFromIntent(result.data)
-                val idToken = credential.googleIdToken
-                if (idToken != null) {
-                    firebaseAuthWithGoogle(idToken)
-                }
-            } catch (e: ApiException) {
-                Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private lateinit var credentialManager: CredentialManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         auth = Firebase.auth
-        oneTapClient = Identity.getSignInClient(this)
+        credentialManager = CredentialManager.create(this)
 
         setContent {
             RyoikumemoTheme {
                 AuthScreen(
-                    onLoginClick = { signIn() },
+                    onLoginClick = {
+                        lifecycleScope.launch {
+                            signIn()
+                        }
+                    },
                     onSkipLoginClick = {
                         startActivity(Intent(this, MainActivity::class.java))
                         finish()
@@ -75,25 +70,37 @@ class AuthActivity : ComponentActivity() {
         }
     }
 
-    private fun signIn() {
-        oneTapClient.beginSignIn(
-            com.google.android.gms.auth.api.identity.BeginSignInRequest.builder()
-                .setGoogleIdTokenRequestOptions(
-                    com.google.android.gms.auth.api.identity.BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
-                        .setSupported(true)
-                        .setServerClientId(getString(R.string.default_web_client_id))
-                        .setFilterByAuthorizedAccounts(false)
-                        .build()
-                )
-                .build()
-        )
-            .addOnSuccessListener { result ->
-                val intentSenderRequest = IntentSenderRequest.Builder(result.pendingIntent).build()
-                signInLauncher.launch(intentSenderRequest)
-            }
-            .addOnFailureListener { e ->
+    private suspend fun signIn() {
+        val nonce = UUID.randomUUID().toString()
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(getString(R.string.default_web_client_id))
+            .setNonce(nonce)
+            .build()
+
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        try {
+            val result = credentialManager.getCredential(this, request)
+            val credential = result.credential
+            if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                try {
+                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    firebaseAuthWithGoogle(googleIdTokenCredential.idToken)
+                } catch (e: GoogleIdTokenParsingException) {
+                    Log.e("AuthActivity", "Google ID token parsing failed", e)
+                    Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Log.e("AuthActivity", "Unexpected credential type: ${credential.type}")
                 Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
             }
+        } catch (e: Exception) {
+            Log.e("AuthActivity", "Sign-in failed", e)
+            Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun firebaseAuthWithGoogle(idToken: String) {
@@ -104,6 +111,7 @@ class AuthActivity : ComponentActivity() {
                     startActivity(Intent(this, MainActivity::class.java))
                     finish()
                 } else {
+                    Log.w("AuthActivity", "firebaseAuthWithGoogle:failure", task.exception)
                     Toast.makeText(this, "認証に失敗しました", Toast.LENGTH_SHORT).show()
                 }
             }
