@@ -154,9 +154,10 @@ fun EditStampScreen(
                         hour.toInt(),
                         minute.toInt()
                     )
+                    val newTimestamp = newCalendar.timeInMillis
 
                     timelineRepository.deleteTimelineItem(stampItem!!)
-                    timelineRepository.saveStamp(stampItem!!.type, note)
+                    timelineRepository.saveStamp(stampItem!!.type, note, newTimestamp)
                     Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
                     onStampUpdated()
 

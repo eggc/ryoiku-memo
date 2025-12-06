@@ -12,7 +12,7 @@ import java.time.format.DateTimeFormatter
 interface TimelineRepository {
     suspend fun getTimelineItems(): List<TimelineItem>
     suspend fun saveDiary(date: String, text: String)
-    suspend fun saveStamp(stampType: StampType, note: String)
+    suspend fun saveStamp(stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
     suspend fun deleteTimelineItem(item: TimelineItem)
 }
 
@@ -50,8 +50,7 @@ class FirestoreTimelineRepository : TimelineRepository {
         timelineCollection.document(date).set(diaryMap).await()
     }
 
-    override suspend fun saveStamp(stampType: StampType, note: String) {
-        val timestamp = System.currentTimeMillis()
+    override suspend fun saveStamp(stampType: StampType, note: String, timestamp: Long) {
         val stampMap = hashMapOf(
             "itemType" to "stamp",
             "timestamp" to timestamp,
@@ -108,9 +107,9 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
         }
     }
 
-    override suspend fun saveStamp(stampType: StampType, note: String) {
+    override suspend fun saveStamp(stampType: StampType, note: String, timestamp: Long) {
         with(stampPrefs.edit()) {
-            putString(System.currentTimeMillis().toString(), "${stampType.name}|${note}")
+            putString(timestamp.toString(), "${stampType.name}|${note}")
             apply()
         }
     }
