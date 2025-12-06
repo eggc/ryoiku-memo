@@ -1,6 +1,8 @@
 package net.eggc.ryoikumemo
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -65,6 +67,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -118,6 +122,7 @@ fun RyoikumemoApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TIMELINE) }
     var editingDiaryDate by rememberSaveable { mutableStateOf<String?>(null) }
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val context = LocalContext.current
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -184,7 +189,15 @@ fun RyoikumemoApp() {
                     }
                 )
 
-                AppDestinations.SETTINGS -> SettingsScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.SETTINGS -> SettingsScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onLogoutClick = {
+                        Firebase.auth.signOut()
+                        val intent = Intent(context, AuthActivity::class.java)
+                        (context as? Activity)?.startActivity(intent)
+                        (context as? Activity)?.finish()
+                    }
+                )
             }
         }
     }
@@ -703,11 +716,17 @@ fun StampCard(label: String, icon: ImageVector, onClick: () -> Unit) {
 
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
-    Text(
-        text = "設定画面です。",
-        modifier = modifier.padding(16.dp)
-    )
+fun SettingsScreen(modifier: Modifier = Modifier, onLogoutClick: () -> Unit) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Button(onClick = onLogoutClick) {
+            Text("ログアウト")
+        }
+    }
 }
 
 @Preview(showBackground = true)
