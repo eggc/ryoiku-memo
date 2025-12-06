@@ -39,6 +39,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -460,7 +461,7 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
                 onValueChange = { note = it },
                 label = { Text("一言メモ") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.menuAnchor() // Important for accessibility
+                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable)
             )
             ExposedDropdownMenu(
                 expanded = expanded,
