@@ -9,12 +9,16 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -54,7 +58,13 @@ class AuthActivity : ComponentActivity() {
 
         setContent {
             RyoikumemoTheme {
-                AuthScreen(onLoginClick = { signIn() })
+                AuthScreen(
+                    onLoginClick = { signIn() },
+                    onSkipLoginClick = {
+                        startActivity(Intent(this, MainActivity::class.java))
+                        finish()
+                    }
+                )
             }
         }
     }
@@ -88,7 +98,7 @@ class AuthActivity : ComponentActivity() {
 }
 
 @Composable
-fun AuthScreen(onLoginClick: () -> Unit) {
+fun AuthScreen(onLoginClick: () -> Unit, onSkipLoginClick: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -96,6 +106,10 @@ fun AuthScreen(onLoginClick: () -> Unit) {
     ) {
         Button(onClick = onLoginClick) {
             Text("Googleでログイン")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = onSkipLoginClick) {
+            Text("ログインせずに利用する")
         }
     }
 }
