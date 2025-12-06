@@ -1,6 +1,5 @@
 package net.eggc.ryoikumemo
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,23 +32,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import net.eggc.ryoikumemo.data.StampType
+import net.eggc.ryoikumemo.data.TimelineRepository
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated: () -> Unit) {
+fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, timelineRepository: TimelineRepository, onStampUpdated: () -> Unit) {
     val context = LocalContext.current
-    val sharedPref = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
-    val stampValueString = sharedPref.getString(stampId.toString(), null)
+    val stampItem = timelineRepository.getTimelineItems().find { it.timestamp == stampId } as? net.eggc.ryoikumemo.data.StampItem
 
-    if (stampValueString == null) {
+    if (stampItem == null) {
         Text("エラー: スタンプが見つかりません", modifier = modifier.padding(16.dp))
         return
     }
-
-    val parts = stampValueString.split('|', limit = 2)
-    val stampType = StampType.valueOf(parts[0])
-    val initialNote = if (parts.size > 1) parts[1] else ""
 
     val initialCalendar = Calendar.getInstance().apply { timeInMillis = stampId }
 
@@ -58,19 +54,16 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
     var day by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.DAY_OF_MONTH).toString()) }
     var hour by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY).toString()) }
     var minute by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.MINUTE).toString()) }
-    var note by rememberSaveable { mutableStateOf(initialNote) }
+    var note by rememberSaveable { mutableStateOf(stampItem.note) }
 
-    fun getNoteSuggestions(): List<String> {
-        return sharedPref.all.values
-            .mapNotNull { it as? String }
-            .map { it.split('|', limit = 2) }
-            .filter { it.size > 1 && it[1].isNotBlank() }
-            .map { it[1] }
+    val suggestions = remember {
+        timelineRepository.getTimelineItems()
+            .filterIsInstance<net.eggc.ryoikumemo.data.StampItem>()
+            .map { it.note }
+            .filter { it.isNotBlank() }
             .distinct()
             .take(10)
     }
-
-    val suggestions = remember { getNoteSuggestions() }
     var expanded by remember { mutableStateOf(false) }
 
     Column(
@@ -82,9 +75,9 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(stampType.icon, contentDescription = null, modifier = Modifier.size(40.dp))
+            Icon(stampItem.type.icon, contentDescription = null, modifier = Modifier.size(40.dp))
             Spacer(modifier = Modifier.width(16.dp))
-            Text(stampType.label, style = MaterialTheme.typography.titleLarge)
+            Text(stampItem.type.label, style = MaterialTheme.typography.titleLarge)
         }
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -149,13 +142,9 @@ fun EditStampScreen(modifier: Modifier = Modifier, stampId: Long, onStampUpdated
                     minute.toInt()
                 )
                 val newTimestamp = newCalendar.timeInMillis
-                val newStampValue = "${stampType.name}|${note}"
 
-                with(sharedPref.edit()) {
-                    remove(stampId.toString())
-                    putString(newTimestamp.toString(), newStampValue)
-                    apply()
-                }
+                timelineRepository.deleteTimelineItem(stampItem)
+                timelineRepository.saveStamp(stampItem.type, note)
                 Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
                 onStampUpdated()
 

@@ -12,14 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Medication
-import androidx.compose.material.icons.filled.SentimentSatisfied
-import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -29,6 +24,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import net.eggc.ryoikumemo.data.SharedPreferencesTimelineRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -58,30 +55,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// タイムラインの項目を表す共通のデータ構造
-sealed interface TimelineItem {
-    val timestamp: Long
-}
-
-data class DiaryItem(
-    override val timestamp: Long,
-    val text: String,
-    val date: String // "yyyy-MM-dd"
-) : TimelineItem
-
-data class StampItem(
-    override val timestamp: Long,
-    val type: StampType,
-    val note: String
-) : TimelineItem
-
-sealed interface TimelineFilter {
-    data object All : TimelineFilter
-    data object DiaryOnly : TimelineFilter
-    data class StampOnly(val type: StampType) : TimelineFilter
-}
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @PreviewScreenSizes
 @Composable
@@ -91,6 +64,7 @@ fun RyoikumemoApp() {
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
     val currentUser = Firebase.auth.currentUser
+    val timelineRepository = remember { SharedPreferencesTimelineRepository(context) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -140,6 +114,7 @@ fun RyoikumemoApp() {
             when (currentDestination) {
                 AppDestinations.TIMELINE -> TimelineScreen(
                     modifier = Modifier.padding(innerPadding),
+                    timelineRepository = timelineRepository,
                     onEditDiaryClick = { date ->
                         editingDiaryDate = date
                         currentDestination = AppDestinations.DIARY
@@ -153,6 +128,7 @@ fun RyoikumemoApp() {
                 AppDestinations.DIARY -> DiaryScreen(
                     modifier = Modifier.padding(innerPadding),
                     date = editingDiaryDate!!,
+                    timelineRepository = timelineRepository,
                     onDiarySaved = {
                         currentDestination = AppDestinations.TIMELINE
                         editingDiaryDate = null
@@ -161,12 +137,14 @@ fun RyoikumemoApp() {
 
                 AppDestinations.STAMP -> StampScreen(
                     modifier = Modifier.padding(innerPadding),
+                    timelineRepository = timelineRepository,
                     onStampSaved = { currentDestination = AppDestinations.TIMELINE }
                 )
 
                 AppDestinations.EDIT_STAMP -> EditStampScreen(
                     modifier = Modifier.padding(innerPadding),
                     stampId = editingStampId!!,
+                    timelineRepository = timelineRepository,
                     onStampUpdated = {
                         currentDestination = AppDestinations.TIMELINE
                         editingStampId = null
@@ -202,12 +180,4 @@ enum class AppDestinations(
     STAMP("スタンプ", Icons.Default.AccessTime),
     SETTINGS("設定", Icons.Default.Settings),
     EDIT_STAMP("スタンプ編集", null)
-}
-
-enum class StampType(val label: String, val icon: ImageVector) {
-    SLEEP("ねる", Icons.Default.Bedtime),
-    WAKE_UP("おきる", Icons.Default.WbSunny),
-    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied),
-    MEDICATION("おくすり", Icons.Default.Medication),
-    FUN("たのしい", Icons.Default.SentimentSatisfied)
 }

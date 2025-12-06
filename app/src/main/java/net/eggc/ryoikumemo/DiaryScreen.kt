@@ -27,12 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DiaryScreen(modifier: Modifier = Modifier, date: String, onDiarySaved: () -> Unit) {
+fun DiaryScreen(modifier: Modifier = Modifier, date: String, timelineRepository: TimelineRepository, onDiarySaved: () -> Unit) {
     val context = LocalContext.current
     val sharedPref = context.getSharedPreferences("diary_prefs", Context.MODE_PRIVATE)
 
@@ -83,13 +84,7 @@ fun DiaryScreen(modifier: Modifier = Modifier, date: String, onDiarySaved: () ->
                         return@Button
                     }
 
-                    with(sharedPref.edit()) {
-                        if (newDateStr != date) {
-                            remove(date)
-                        }
-                        putString(newDateStr, text)
-                        apply()
-                    }
+                    timelineRepository.saveDiary(newDateStr, text)
                     Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
                     onDiarySaved()
                 } catch (e: Exception) {

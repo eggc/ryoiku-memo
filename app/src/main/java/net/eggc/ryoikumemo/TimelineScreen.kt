@@ -1,6 +1,5 @@
 package net.eggc.ryoikumemo
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
@@ -35,9 +34,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import net.eggc.ryoikumemo.data.DiaryItem
+import net.eggc.ryoikumemo.data.StampItem
+import net.eggc.ryoikumemo.data.StampType
+import net.eggc.ryoikumemo.data.TimelineFilter
+import net.eggc.ryoikumemo.data.TimelineItem
+import net.eggc.ryoikumemo.data.TimelineRepository
 import java.text.SimpleDateFormat
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
@@ -47,40 +51,12 @@ import java.util.Locale
 @Composable
 fun TimelineScreen(
     modifier: Modifier = Modifier,
+    timelineRepository: TimelineRepository,
     onEditDiaryClick: (String) -> Unit,
     onEditStampClick: (Long) -> Unit
 ) {
     val context = LocalContext.current
-    val dateParser = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-
-    fun getTimelineItems(): List<TimelineItem> {
-        val diaryPrefs = context.getSharedPreferences("diary_prefs", Context.MODE_PRIVATE)
-        val diaries = diaryPrefs.all.mapNotNull { (key, value) ->
-            try {
-                val diaryTimestamp = LocalDate.parse(key, dateParser).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                DiaryItem(timestamp = diaryTimestamp, text = value as String, date = key)
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        val stampPrefs = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
-        val stamps = stampPrefs.all.mapNotNull { (key, value) ->
-            try {
-                val valueString = value as String
-                val parts = valueString.split('|', limit = 2)
-                val type = StampType.valueOf(parts[0])
-                val note = if (parts.size > 1) parts[1] else ""
-                StampItem(timestamp = key.toLong(), type = type, note = note)
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        return (diaries + stamps).sortedByDescending { it.timestamp }
-    }
-
-    var timelineItems by remember { mutableStateOf(getTimelineItems()) }
+    var timelineItems by remember { mutableStateOf(timelineRepository.getTimelineItems()) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var currentFilter by remember { mutableStateOf<TimelineFilter>(TimelineFilter.All) }
 
@@ -94,20 +70,8 @@ fun TimelineScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val keyToDelete = when (itemToDelete) {
-                            is DiaryItem -> itemToDelete.date
-                            is StampItem -> itemToDelete.timestamp.toString()
-                        }
-                        val prefsName = when (itemToDelete) {
-                            is DiaryItem -> "diary_prefs"
-                            is StampItem -> "stamp_prefs"
-                        }
-                        val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-                        with(prefs.edit()) {
-                            remove(keyToDelete)
-                            apply()
-                        }
-                        timelineItems = getTimelineItems() // Refresh the list
+                        timelineRepository.deleteTimelineItem(itemToDelete)
+                        timelineItems = timelineRepository.getTimelineItems() // Refresh the list
                         showDeleteDialogFor = null
                         Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                     }

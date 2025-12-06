@@ -1,0 +1,39 @@
+package net.eggc.ryoikumemo.data
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.SentimentSatisfied
+import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.ui.graphics.vector.ImageVector
+
+sealed interface TimelineItem {
+    val timestamp: Long
+}
+
+data class DiaryItem(
+    override val timestamp: Long,
+    val text: String,
+    val date: String // "yyyy-MM-dd"
+) : TimelineItem
+
+data class StampItem(
+    override val timestamp: Long,
+    val type: StampType,
+    val note: String
+) : TimelineItem
+
+sealed interface TimelineFilter {
+    data object All : TimelineFilter
+    data object DiaryOnly : TimelineFilter
+    data class StampOnly(val type: StampType) : TimelineFilter
+}
+
+enum class StampType(val label: String, val icon: ImageVector) {
+    SLEEP("ねる", Icons.Default.Bedtime),
+    WAKE_UP("おきる", Icons.Default.WbSunny),
+    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied),
+    MEDICATION("おくすり", Icons.Default.Medication),
+    FUN("たのしい", Icons.Default.SentimentSatisfied)
+}

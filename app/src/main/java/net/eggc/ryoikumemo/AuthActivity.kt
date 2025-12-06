@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,27 +20,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.SignInClient
 import com.google.android.gms.common.api.ApiException
+import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
-import com.google.firebase.Firebase
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 
 class AuthActivity : ComponentActivity() {
 
-    private lateinit var googleSignInClient: GoogleSignInClient
+    private lateinit var oneTapClient: SignInClient
     private lateinit var auth: FirebaseAuth
 
-    private val signInLauncher: ActivityResultLauncher<Intent> =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+    private val signInLauncher: ActivityResultLauncher<IntentSenderRequest> =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             try {
-                val account = task.getResult(ApiException::class.java)!!
-                firebaseAuthWithGoogle(account.idToken!!)
+                val credential = oneTapClient.getSignInCredentialFromIntent(result.data)
+                val idToken = credential.googleIdToken
+                if (idToken != null) {
+                    firebaseAuthWithGoogle(idToken)
+                }
             } catch (e: ApiException) {
                 Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
             }
@@ -49,12 +51,7 @@ class AuthActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         auth = Firebase.auth
-
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .build()
-        googleSignInClient = GoogleSignIn.getClient(this, gso)
+        oneTapClient = Identity.getSignInClient(this)
 
         setContent {
             RyoikumemoTheme {
@@ -79,8 +76,24 @@ class AuthActivity : ComponentActivity() {
     }
 
     private fun signIn() {
-        val signInIntent = googleSignInClient.signInIntent
-        signInLauncher.launch(signInIntent)
+        oneTapClient.beginSignIn(
+            com.google.android.gms.auth.api.identity.BeginSignInRequest.builder()
+                .setGoogleIdTokenRequestOptions(
+                    com.google.android.gms.auth.api.identity.BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
+                        .setSupported(true)
+                        .setServerClientId(getString(R.string.default_web_client_id))
+                        .setFilterByAuthorizedAccounts(false)
+                        .build()
+                )
+                .build()
+        )
+            .addOnSuccessListener { result ->
+                val intentSenderRequest = IntentSenderRequest.Builder(result.pendingIntent).build()
+                signInLauncher.launch(intentSenderRequest)
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun firebaseAuthWithGoogle(idToken: String) {

@@ -60,6 +60,7 @@ dependencies {
 
     // Google Play Services
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.android.gms:play-services-identity:18.0.1")
 
     implementation("io.coil-kt:coil-compose:2.6.0")
 

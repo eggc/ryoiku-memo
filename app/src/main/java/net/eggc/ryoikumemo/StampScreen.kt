@@ -1,6 +1,5 @@
 package net.eggc.ryoikumemo
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,9 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import net.eggc.ryoikumemo.data.StampType
+import net.eggc.ryoikumemo.data.TimelineRepository
 
 @Composable
-fun StampScreen(modifier: Modifier = Modifier, onStampSaved: () -> Unit) {
+fun StampScreen(modifier: Modifier = Modifier, timelineRepository: TimelineRepository, onStampSaved: () -> Unit) {
     val context = LocalContext.current
     Column(
         modifier = modifier
@@ -37,12 +38,7 @@ fun StampScreen(modifier: Modifier = Modifier, onStampSaved: () -> Unit) {
                 label = stampType.label,
                 icon = stampType.icon,
                 onClick = {
-                    val sharedPref = context.getSharedPreferences("stamp_prefs", Context.MODE_PRIVATE)
-                    with(sharedPref.edit()) {
-                        // Persist with an empty note field for consistency
-                        putString(System.currentTimeMillis().toString(), "${stampType.name}|")
-                        apply()
-                    }
+                    timelineRepository.saveStamp(stampType, "")
                     Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
                     onStampSaved()
                 }
