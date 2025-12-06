@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ryoiku_memo"
+    namespace = "net.eggc.ryoikumemo"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.example.ryoiku_memo"
+        applicationId = "net.eggc.ryoikumemo"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

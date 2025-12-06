@@ -1,4 +1,4 @@
-package com.example.ryoiku_memo
+package net.eggc.ryoikumemo
 
 import org.junit.Test
 

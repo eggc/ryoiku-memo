@@ -1,4 +1,4 @@
-package com.example.ryoiku_memo.ui.theme
+package net.eggc.ryoikumemo.ui.theme
 
 import android.app.Activity
 import android.os.Build

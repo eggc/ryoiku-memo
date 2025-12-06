@@ -1,4 +1,4 @@
-package com.example.ryoiku_memo.ui.theme
+package net.eggc.ryoikumemo.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

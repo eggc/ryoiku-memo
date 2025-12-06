@@ -1,4 +1,4 @@
-package com.example.ryoiku_memo
+package net.eggc.ryoikumemo
 
 import android.content.Context
 import android.os.Bundle
@@ -64,7 +64,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
-import com.example.ryoiku_memo.ui.theme.RyoikumemoTheme
+import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
