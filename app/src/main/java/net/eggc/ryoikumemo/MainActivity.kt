@@ -1,0 +1,213 @@
+package net.eggc.ryoikumemo
+
+import android.app.Activity
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.SentimentSatisfied
+import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            RyoikumemoTheme {
+                RyoikumemoApp()
+            }
+        }
+    }
+}
+
+// タイムラインの項目を表す共通のデータ構造
+sealed interface TimelineItem {
+    val timestamp: Long
+}
+
+data class DiaryItem(
+    override val timestamp: Long,
+    val text: String,
+    val date: String // "yyyy-MM-dd"
+) : TimelineItem
+
+data class StampItem(
+    override val timestamp: Long,
+    val type: StampType,
+    val note: String
+) : TimelineItem
+
+sealed interface TimelineFilter {
+    data object All : TimelineFilter
+    data object DiaryOnly : TimelineFilter
+    data class StampOnly(val type: StampType) : TimelineFilter
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@PreviewScreenSizes
+@Composable
+fun RyoikumemoApp() {
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TIMELINE) }
+    var editingDiaryDate by rememberSaveable { mutableStateOf<String?>(null) }
+    var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val context = LocalContext.current
+    val currentUser = Firebase.auth.currentUser
+
+    NavigationSuiteScaffold(
+        navigationSuiteItems = {
+            AppDestinations.entries.filter { it.icon != null }.forEach { dest ->
+                item(
+                    icon = {
+                        Icon(
+                            dest.icon!!,
+                            contentDescription = dest.label
+                        )
+                    },
+                    label = { Text(dest.label) },
+                    selected = dest == currentDestination,
+                    onClick = {
+                        currentDestination = dest
+                        editingStampId = null
+                        if (dest == AppDestinations.DIARY) {
+                            editingDiaryDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        }
+                    }
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = { Text("療育メモ") },
+                    actions = {
+                        if (currentUser != null) {
+                            AsyncImage(
+                                model = currentUser.photoUrl,
+                                contentDescription = "User profile picture",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                                error = painterResource(id = R.drawable.ic_launcher_foreground),
+                                placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
+                            )
+                        }
+                    }
+                )
+            }
+        ) { innerPadding ->
+            when (currentDestination) {
+                AppDestinations.TIMELINE -> TimelineScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onEditDiaryClick = { date ->
+                        editingDiaryDate = date
+                        currentDestination = AppDestinations.DIARY
+                    },
+                    onEditStampClick = { stampId ->
+                        editingStampId = stampId
+                        currentDestination = AppDestinations.EDIT_STAMP
+                    }
+                )
+
+                AppDestinations.DIARY -> DiaryScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    date = editingDiaryDate!!,
+                    onDiarySaved = {
+                        currentDestination = AppDestinations.TIMELINE
+                        editingDiaryDate = null
+                    }
+                )
+
+                AppDestinations.STAMP -> StampScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onStampSaved = { currentDestination = AppDestinations.TIMELINE }
+                )
+
+                AppDestinations.EDIT_STAMP -> EditStampScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    stampId = editingStampId!!,
+                    onStampUpdated = {
+                        currentDestination = AppDestinations.TIMELINE
+                        editingStampId = null
+                    }
+                )
+
+                AppDestinations.SETTINGS -> SettingsScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    currentUser = currentUser,
+                    onLogoutClick = {
+                        Firebase.auth.signOut()
+                        val intent = Intent(context, AuthActivity::class.java)
+                        (context as? Activity)?.startActivity(intent)
+                        (context as? Activity)?.finish()
+                    },
+                    onLoginClick = {
+                        val intent = Intent(context, AuthActivity::class.java)
+                        (context as? Activity)?.startActivity(intent)
+                        (context as? Activity)?.finish()
+                    }
+                )
+            }
+        }
+    }
+}
+
+enum class AppDestinations(
+    val label: String,
+    val icon: ImageVector?,
+) {
+    TIMELINE("タイムライン", Icons.Default.Timeline),
+    DIARY("日記", Icons.Default.Book),
+    STAMP("スタンプ", Icons.Default.AccessTime),
+    SETTINGS("設定", Icons.Default.Settings),
+    EDIT_STAMP("スタンプ編集", null)
+}
+
+enum class StampType(val label: String, val icon: ImageVector) {
+    SLEEP("ねる", Icons.Default.Bedtime),
+    WAKE_UP("おきる", Icons.Default.WbSunny),
+    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied),
+    MEDICATION("おくすり", Icons.Default.Medication),
+    FUN("たのしい", Icons.Default.SentimentSatisfied)
+}
