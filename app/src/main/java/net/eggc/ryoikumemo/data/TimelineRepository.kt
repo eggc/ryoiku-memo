@@ -6,7 +6,6 @@ import com.google.firebase.auth.auth
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -21,7 +20,7 @@ interface TimelineRepository {
     suspend fun updateNote(note: Note)
     suspend fun deleteNote(noteId: String)
 
-    suspend fun getTimelineItemsForWeek(noteId: String, dateInWeek: LocalDate): List<TimelineItem>
+    suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem>
     suspend fun getDiaryItem(noteId: String, date: String): DiaryItem?
     suspend fun getStampItem(noteId: String, timestamp: Long): StampItem?
     suspend fun getStampNoteSuggestions(noteId: String): List<String>
@@ -68,12 +67,12 @@ class FirestoreTimelineRepository : TimelineRepository {
     private fun timelineCollection(noteId: String) =
         notesCollection.document(noteId).collection("timeline")
 
-    override suspend fun getTimelineItemsForWeek(noteId: String, dateInWeek: LocalDate): List<TimelineItem> {
-        val startOfWeek = dateInWeek.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val endOfWeek = dateInWeek.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+    override suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem> {
+        val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
+        val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
 
-        val startTimestamp = startOfWeek.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endTimestamp = endOfWeek.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val startTimestamp = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTimestamp = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val snapshot = timelineCollection(noteId)
             .whereGreaterThanOrEqualTo("timestamp", startTimestamp)
@@ -192,8 +191,8 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
     private fun diaryPrefs(noteId: String) = context.getSharedPreferences("diary_prefs_$noteId", Context.MODE_PRIVATE)
     private fun stampPrefs(noteId: String) = context.getSharedPreferences("stamp_prefs_$noteId", Context.MODE_PRIVATE)
 
-    override suspend fun getTimelineItemsForWeek(noteId: String, dateInWeek: LocalDate): List<TimelineItem> {
-        // SharedPreferences implementation doesn't support week-based filtering easily, returning all for simplicity
+    override suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem> {
+        // SharedPreferences implementation doesn't support month-based filtering easily, returning all for simplicity
         val diaries = diaryPrefs(noteId).all.mapNotNull { (key, value) ->
             try {
                 val diaryTimestamp =

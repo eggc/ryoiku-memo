@@ -49,12 +49,10 @@ import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineItem
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.text.SimpleDateFormat
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.temporal.TemporalAdjusters
 import java.util.Date
 import java.util.Locale
 
@@ -72,13 +70,13 @@ fun TimelineScreen(
     var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var currentWeek by remember { mutableStateOf(LocalDate.now()) }
+    var currentMonth by remember { mutableStateOf(LocalDate.now()) }
 
     fun refreshTimeline() {
         coroutineScope.launch {
             isLoading = true
             try {
-                timelineItems = timelineRepository.getTimelineItemsForWeek(noteId, currentWeek)
+                timelineItems = timelineRepository.getTimelineItemsForMonth(noteId, currentMonth)
             } catch (e: Exception) {
                 Log.e("TimelineScreen", "Failed to load timeline items", e)
                 Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -88,7 +86,7 @@ fun TimelineScreen(
         }
     }
 
-    LaunchedEffect(noteId, currentWeek) {
+    LaunchedEffect(noteId, currentMonth) {
         refreshTimeline()
     }
 
@@ -130,7 +128,7 @@ fun TimelineScreen(
     }
 
     Column(modifier = modifier) {
-        WeekSelector(currentWeek = currentWeek, onWeekChange = { currentWeek = it })
+        MonthSelector(currentMonth = currentMonth, onMonthChange = { currentMonth = it })
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -141,7 +139,7 @@ fun TimelineScreen(
                 if (groupedItems.isEmpty()) {
                     item {
                         Text(
-                            text = "この週の記録はありません。",
+                            text = "この月の記録はありません。",
                             modifier = Modifier.padding(16.dp)
                         )
                     }
@@ -191,10 +189,8 @@ fun TimelineScreen(
 }
 
 @Composable
-fun WeekSelector(currentWeek: LocalDate, onWeekChange: (LocalDate) -> Unit) {
-    val startOfWeek = currentWeek.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val endOfWeek = currentWeek.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
-    val formatter = DateTimeFormatter.ofPattern("M月d日")
+fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit) {
+    val formatter = DateTimeFormatter.ofPattern("yyyy年 M月")
 
     Row(
         modifier = Modifier
@@ -203,15 +199,15 @@ fun WeekSelector(currentWeek: LocalDate, onWeekChange: (LocalDate) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        IconButton(onClick = { onWeekChange(currentWeek.minusWeeks(1)) }) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "前の週")
+        IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "前の月")
         }
         Text(
-            text = "${startOfWeek.format(formatter)}〜${endOfWeek.format(formatter)}",
+            text = currentMonth.format(formatter),
             style = MaterialTheme.typography.titleMedium
         )
-        IconButton(onClick = { onWeekChange(currentWeek.plusWeeks(1)) }) {
-            Icon(Icons.Default.ArrowForward, contentDescription = "次の週")
+        IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
+            Icon(Icons.Default.ArrowForward, contentDescription = "次の月")
         }
     }
 }
