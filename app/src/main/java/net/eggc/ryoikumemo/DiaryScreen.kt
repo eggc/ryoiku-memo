@@ -113,6 +113,11 @@ fun DiaryScreen(
             onClick = {
                 coroutineScope.launch {
                     val newDateStr = currentDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                    val originalDateStr = date
+                    if (newDateStr != originalDateStr) {
+                        val oldItem = net.eggc.ryoikumemo.data.DiaryItem(0L, "", originalDateStr)
+                        timelineRepository.deleteTimelineItem(noteId, oldItem)
+                    }
                     timelineRepository.saveDiary(noteId, newDateStr, text)
                     Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
                     onDiarySaved()

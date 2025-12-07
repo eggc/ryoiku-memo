@@ -49,6 +49,7 @@ fun NoteScreen(
     timelineRepository: TimelineRepository,
     onNoteSelected: (Note) -> Unit,
     currentNoteId: String,
+    onNoteUpdated: (Note) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
@@ -84,9 +85,11 @@ fun NoteScreen(
             initialName = note.name,
             onDismiss = { showEditNoteDialog = null },
             onConfirm = { newName ->
+                val updatedNote = note.copy(name = newName)
                 coroutineScope.launch {
-                    timelineRepository.updateNote(note.copy(name = newName))
+                    timelineRepository.updateNote(updatedNote)
                     refreshNotes()
+                    onNoteUpdated(updatedNote)
                 }
                 showEditNoteDialog = null
             }

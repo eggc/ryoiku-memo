@@ -220,6 +220,9 @@ fun RyoikumemoApp() {
                         onNoteSelected = {
                             currentNote = it
                             currentDestination = AppDestinations.TIMELINE
+                        },
+                        onNoteUpdated = { updatedNote ->
+                            currentNote = updatedNote
                         }
                     )
 
