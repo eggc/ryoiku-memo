@@ -22,9 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -38,7 +40,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
+import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.SharedPreferencesTimelineRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.time.LocalDate
@@ -64,12 +68,25 @@ fun RyoikumemoApp() {
     var editingDiaryDate by rememberSaveable { mutableStateOf<String?>(null) }
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val currentUser = Firebase.auth.currentUser
     val timelineRepository = remember {
         if (currentUser != null) {
             FirestoreTimelineRepository()
         } else {
             SharedPreferencesTimelineRepository(context)
+        }
+    }
+    var currentNote by remember { mutableStateOf<Note?>(null) }
+
+    LaunchedEffect(timelineRepository) {
+        coroutineScope.launch {
+            val notes = timelineRepository.getNotes()
+            currentNote = if (notes.isEmpty()) {
+                timelineRepository.createNote("ノート1")
+            } else {
+                notes.first()
+            }
         }
     }
 
@@ -100,7 +117,7 @@ fun RyoikumemoApp() {
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
-                    title = { Text("療育メモ") },
+                    title = { Text(currentNote?.name ?: "") },
                     actions = {
                         if (currentUser != null) {
                             AsyncImage(
@@ -118,61 +135,67 @@ fun RyoikumemoApp() {
                 )
             }
         ) { innerPadding ->
-            when (currentDestination) {
-                AppDestinations.TIMELINE -> TimelineScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    timelineRepository = timelineRepository,
-                    onEditDiaryClick = { date ->
-                        editingDiaryDate = date
-                        currentDestination = AppDestinations.DIARY
-                    },
-                    onEditStampClick = { stampId ->
-                        editingStampId = stampId
-                        currentDestination = AppDestinations.EDIT_STAMP
-                    }
-                )
+            if (currentNote != null) {
+                when (currentDestination) {
+                    AppDestinations.TIMELINE -> TimelineScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        timelineRepository = timelineRepository,
+                        noteId = currentNote!!.id,
+                        onEditDiaryClick = { date ->
+                            editingDiaryDate = date
+                            currentDestination = AppDestinations.DIARY
+                        },
+                        onEditStampClick = { stampId ->
+                            editingStampId = stampId
+                            currentDestination = AppDestinations.EDIT_STAMP
+                        }
+                    )
 
-                AppDestinations.DIARY -> DiaryScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    date = editingDiaryDate!!,
-                    timelineRepository = timelineRepository,
-                    onDiarySaved = {
-                        currentDestination = AppDestinations.TIMELINE
-                        editingDiaryDate = null
-                    }
-                )
+                    AppDestinations.DIARY -> DiaryScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        date = editingDiaryDate!!,
+                        timelineRepository = timelineRepository,
+                        noteId = currentNote!!.id,
+                        onDiarySaved = {
+                            currentDestination = AppDestinations.TIMELINE
+                            editingDiaryDate = null
+                        }
+                    )
 
-                AppDestinations.STAMP -> StampScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    timelineRepository = timelineRepository,
-                    onStampSaved = { currentDestination = AppDestinations.TIMELINE }
-                )
+                    AppDestinations.STAMP -> StampScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        timelineRepository = timelineRepository,
+                        noteId = currentNote!!.id,
+                        onStampSaved = { currentDestination = AppDestinations.TIMELINE }
+                    )
 
-                AppDestinations.EDIT_STAMP -> EditStampScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    stampId = editingStampId!!,
-                    timelineRepository = timelineRepository,
-                    onStampUpdated = {
-                        currentDestination = AppDestinations.TIMELINE
-                        editingStampId = null
-                    }
-                )
+                    AppDestinations.EDIT_STAMP -> EditStampScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        stampId = editingStampId!!,
+                        timelineRepository = timelineRepository,
+                        noteId = currentNote!!.id,
+                        onStampUpdated = {
+                            currentDestination = AppDestinations.TIMELINE
+                            editingStampId = null
+                        }
+                    )
 
-                AppDestinations.SETTINGS -> SettingsScreen(
-                    modifier = Modifier.padding(innerPadding),
-                    currentUser = currentUser,
-                    onLogoutClick = {
-                        Firebase.auth.signOut()
-                        val intent = Intent(context, AuthActivity::class.java)
-                        (context as? Activity)?.startActivity(intent)
-                        (context as? Activity)?.finish()
-                    },
-                    onLoginClick = {
-                        val intent = Intent(context, AuthActivity::class.java)
-                        (context as? Activity)?.startActivity(intent)
-                        (context as? Activity)?.finish()
-                    }
-                )
+                    AppDestinations.SETTINGS -> SettingsScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        currentUser = currentUser,
+                        onLogoutClick = {
+                            Firebase.auth.signOut()
+                            val intent = Intent(context, AuthActivity::class.java)
+                            (context as? Activity)?.startActivity(intent)
+                            (context as? Activity)?.finish()
+                        },
+                        onLoginClick = {
+                            val intent = Intent(context, AuthActivity::class.java)
+                            (context as? Activity)?.startActivity(intent)
+                            (context as? Activity)?.finish()
+                        }
+                    )
+                }
             }
         }
     }

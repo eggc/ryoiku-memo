@@ -40,6 +40,7 @@ fun DiaryScreen(
     modifier: Modifier = Modifier,
     date: String,
     timelineRepository: TimelineRepository,
+    noteId: String,
     onDiarySaved: () -> Unit
 ) {
     val context = LocalContext.current
@@ -53,10 +54,12 @@ fun DiaryScreen(
 
     var text by remember { mutableStateOf("") }
 
-    LaunchedEffect(date) {
-        val diaryItem = timelineRepository.getTimelineItems().find { it is net.eggc.ryoikumemo.data.DiaryItem && it.date == date }
+    LaunchedEffect(date, noteId) {
+        val diaryItem = timelineRepository.getTimelineItems(noteId).find { it is net.eggc.ryoikumemo.data.DiaryItem && it.date == date }
         if (diaryItem != null) {
             text = (diaryItem as net.eggc.ryoikumemo.data.DiaryItem).text
+        } else {
+            text = ""
         }
     }
 
@@ -93,7 +96,7 @@ fun DiaryScreen(
                 coroutineScope.launch {
                     try {
                         val newDateStr = LocalDate.of(year.toInt(), month.toInt(), day.toInt()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        timelineRepository.saveDiary(newDateStr, text)
+                        timelineRepository.saveDiary(noteId, newDateStr, text)
                         Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()
                         onDiarySaved()
                     } catch (e: Exception) {

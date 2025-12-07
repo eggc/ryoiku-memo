@@ -30,7 +30,12 @@ import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineRepository
 
 @Composable
-fun StampScreen(modifier: Modifier = Modifier, timelineRepository: TimelineRepository, onStampSaved: () -> Unit) {
+fun StampScreen(
+    modifier: Modifier = Modifier,
+    timelineRepository: TimelineRepository,
+    noteId: String,
+    onStampSaved: () -> Unit
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     LazyVerticalGrid(
@@ -46,7 +51,7 @@ fun StampScreen(modifier: Modifier = Modifier, timelineRepository: TimelineRepos
                 icon = stampType.icon,
                 onClick = {
                     coroutineScope.launch {
-                        timelineRepository.saveStamp(stampType, "")
+                        timelineRepository.saveStamp(noteId, stampType, "")
                         Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
                         onStampSaved()
                     }

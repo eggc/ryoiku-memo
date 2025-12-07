@@ -45,6 +45,7 @@ fun EditStampScreen(
     modifier: Modifier = Modifier,
     stampId: Long,
     timelineRepository: TimelineRepository,
+    noteId: String,
     onStampUpdated: () -> Unit
 ) {
     val context = LocalContext.current
@@ -52,9 +53,9 @@ fun EditStampScreen(
     var stampItem by remember { mutableStateOf<StampItem?>(null) }
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    LaunchedEffect(stampId) {
-        stampItem = timelineRepository.getTimelineItems().find { it.timestamp == stampId } as? StampItem
-        suggestions = timelineRepository.getTimelineItems()
+    LaunchedEffect(stampId, noteId) {
+        stampItem = timelineRepository.getTimelineItems(noteId).find { it.timestamp == stampId } as? StampItem
+        suggestions = timelineRepository.getTimelineItems(noteId)
             .filterIsInstance<StampItem>()
             .map { it.note }
             .filter { it.isNotBlank() }
@@ -156,8 +157,8 @@ fun EditStampScreen(
                     )
                     val newTimestamp = newCalendar.timeInMillis
 
-                    timelineRepository.deleteTimelineItem(stampItem!!)
-                    timelineRepository.saveStamp(stampItem!!.type, note, newTimestamp)
+                    timelineRepository.deleteTimelineItem(noteId, stampItem!!)
+                    timelineRepository.saveStamp(noteId, stampItem!!.type, note, newTimestamp)
                     Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
                     onStampUpdated()
 

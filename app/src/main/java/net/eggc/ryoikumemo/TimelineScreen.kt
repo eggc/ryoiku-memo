@@ -60,6 +60,7 @@ import java.util.Locale
 fun TimelineScreen(
     modifier: Modifier = Modifier,
     timelineRepository: TimelineRepository,
+    noteId: String,
     onEditDiaryClick: (String) -> Unit,
     onEditStampClick: (Long) -> Unit
 ) {
@@ -70,10 +71,10 @@ fun TimelineScreen(
     var currentFilter by remember { mutableStateOf<TimelineFilter>(TimelineFilter.All) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(noteId) {
         isLoading = true
         try {
-            timelineItems = timelineRepository.getTimelineItems()
+            timelineItems = timelineRepository.getTimelineItems(noteId)
         } catch (e: Exception) {
             Log.e("TimelineScreen", "Failed to load timeline items", e)
             Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -93,8 +94,8 @@ fun TimelineScreen(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                timelineRepository.deleteTimelineItem(itemToDelete)
-                                timelineItems = timelineRepository.getTimelineItems() // Refresh the list
+                                timelineRepository.deleteTimelineItem(noteId, itemToDelete)
+                                timelineItems = timelineRepository.getTimelineItems(noteId) // Refresh the list
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
