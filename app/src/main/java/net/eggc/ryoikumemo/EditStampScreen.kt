@@ -1,6 +1,8 @@
 package net.eggc.ryoikumemo
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,8 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -20,23 +24,28 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineRepository
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,6 +61,10 @@ fun EditStampScreen(
     val coroutineScope = rememberCoroutineScope()
     var stampItem by remember { mutableStateOf<StampItem?>(null) }
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    var currentTimestamp by remember { mutableStateOf(stampId) }
 
     LaunchedEffect(stampId, noteId) {
         stampItem = timelineRepository.getTimelineItems(noteId).find { it.timestamp == stampId } as? StampItem
@@ -68,16 +81,78 @@ fun EditStampScreen(
         return
     }
 
-    val initialCalendar = Calendar.getInstance().apply { timeInMillis = stampId }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = currentTimestamp)
+    val timePickerState = rememberTimePickerState(
+        initialHour = Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).hour,
+        initialMinute = Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).minute,
+        is24Hour = true
+    )
 
-    var year by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.YEAR).toString()) }
-    var month by rememberSaveable { mutableStateOf((initialCalendar.get(Calendar.MONTH) + 1).toString()) }
-    var day by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.DAY_OF_MONTH).toString()) }
-    var hour by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.HOUR_OF_DAY).toString()) }
-    var minute by rememberSaveable { mutableStateOf(initialCalendar.get(Calendar.MINUTE).toString()) }
-    var note by rememberSaveable(stampItem?.note) { mutableStateOf(stampItem?.note ?: "") }
+    var note by remember(stampItem?.note) { mutableStateOf(stampItem?.note ?: "") }
 
     var expanded by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedDate = Calendar.getInstance().apply {
+                        timeInMillis = datePickerState.selectedDateMillis!!
+                    }
+                    val currentCalendar = Calendar.getInstance().apply {
+                        timeInMillis = currentTimestamp
+                    }
+                    currentCalendar.set(selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH), selectedDate.get(Calendar.DAY_OF_MONTH))
+                    currentTimestamp = currentCalendar.timeInMillis
+                    showDatePicker = false
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("キャンセル")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text(text = "時刻の選択") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val currentCalendar = Calendar.getInstance().apply {
+                            timeInMillis = currentTimestamp
+                        }
+                        currentCalendar.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        currentCalendar.set(Calendar.MINUTE, timePickerState.minute)
+                        currentTimestamp = currentCalendar.timeInMillis
+                        showTimePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showTimePicker = false }
+                ) {
+                    Text("キャンセル")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -94,22 +169,13 @@ fun EditStampScreen(
         }
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Date Fields
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            TextField(value = year, onValueChange = { year = it }, label = { Text("年") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            Spacer(modifier = Modifier.width(8.dp))
-            TextField(value = month, onValueChange = { month = it }, label = { Text("月") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            Spacer(modifier = Modifier.width(8.dp))
-            TextField(value = day, onValueChange = { day = it }, label = { Text("日") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Time Fields
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            TextField(value = hour, onValueChange = { hour = it }, label = { Text("時") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            Spacer(modifier = Modifier.width(8.dp))
-            TextField(value = minute, onValueChange = { minute = it }, label = { Text("分") }, modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Button(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
+                Text(Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy/MM/dd")))
+            }
+            Button(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
+                Text(Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")))
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -146,25 +212,10 @@ fun EditStampScreen(
 
         Button(onClick = {
             coroutineScope.launch {
-                val newCalendar = Calendar.getInstance()
-                try {
-                    newCalendar.set(
-                        year.toInt(),
-                        month.toInt() - 1, // Calendar.MONTH is 0-indexed
-                        day.toInt(),
-                        hour.toInt(),
-                        minute.toInt()
-                    )
-                    val newTimestamp = newCalendar.timeInMillis
-
-                    timelineRepository.deleteTimelineItem(noteId, stampItem!!)
-                    timelineRepository.saveStamp(noteId, stampItem!!.type, note, newTimestamp)
-                    Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
-                    onStampUpdated()
-
-                } catch (e: Exception) {
-                    Toast.makeText(context, "日時の入力に誤りがあります", Toast.LENGTH_SHORT).show()
-                }
+                timelineRepository.deleteTimelineItem(noteId, stampItem!!)
+                timelineRepository.saveStamp(noteId, stampItem!!.type, note, currentTimestamp)
+                Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
+                onStampUpdated()
             }
         }) {
             Text("保存")
