@@ -47,6 +47,7 @@ fun NoteScreen(
     modifier: Modifier = Modifier,
     timelineRepository: TimelineRepository,
     onNoteSelected: (Note) -> Unit,
+    currentNoteId: String,
 ) {
     val coroutineScope = rememberCoroutineScope()
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
@@ -138,7 +139,10 @@ fun NoteScreen(
                             Icon(Icons.Default.Edit, contentDescription = "編集")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(onClick = { showDeleteNoteDialog = note }) {
+                        IconButton(
+                            onClick = { showDeleteNoteDialog = note },
+                            enabled = note.id != currentNoteId
+                        ) {
                             Icon(Icons.Default.Delete, contentDescription = "削除")
                         }
                     }

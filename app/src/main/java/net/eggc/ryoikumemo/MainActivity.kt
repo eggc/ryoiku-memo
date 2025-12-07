@@ -200,6 +200,7 @@ fun RyoikumemoApp() {
                     AppDestinations.NOTE -> NoteScreen(
                         modifier = Modifier.padding(innerPadding),
                         timelineRepository = timelineRepository,
+                        currentNoteId = currentNote!!.id,
                         onNoteSelected = {
                             currentNote = it
                             currentDestination = AppDestinations.TIMELINE
