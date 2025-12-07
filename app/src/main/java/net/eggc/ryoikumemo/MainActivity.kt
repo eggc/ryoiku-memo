@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -82,10 +83,12 @@ fun RyoikumemoApp() {
     LaunchedEffect(timelineRepository) {
         coroutineScope.launch {
             val notes = timelineRepository.getNotes()
-            currentNote = if (notes.isEmpty()) {
-                timelineRepository.createNote("ノート1")
-            } else {
-                notes.first()
+            if (currentNote == null) {
+                currentNote = if (notes.isEmpty()) {
+                    timelineRepository.createNote("ノート1")
+                } else {
+                    notes.first()
+                }
             }
         }
     }
@@ -117,7 +120,12 @@ fun RyoikumemoApp() {
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
-                    title = { Text(currentNote?.name ?: "") },
+                    title = {
+                        Text(
+                            currentNote?.name ?: "",
+                            modifier = Modifier.clickable { currentDestination = AppDestinations.NOTE }
+                        )
+                    },
                     actions = {
                         if (currentUser != null) {
                             AsyncImage(
@@ -180,6 +188,15 @@ fun RyoikumemoApp() {
                         }
                     )
 
+                    AppDestinations.NOTE -> NoteScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        timelineRepository = timelineRepository,
+                        onNoteSelected = {
+                            currentNote = it
+                            currentDestination = AppDestinations.TIMELINE
+                        }
+                    )
+
                     AppDestinations.SETTINGS -> SettingsScreen(
                         modifier = Modifier.padding(innerPadding),
                         currentUser = currentUser,
@@ -208,6 +225,7 @@ enum class AppDestinations(
     TIMELINE("タイムライン", Icons.Default.Timeline),
     DIARY("日記", Icons.Default.Book),
     STAMP("スタンプ", Icons.Default.AccessTime),
+    NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
     EDIT_STAMP("スタンプ編集", null)
 }
