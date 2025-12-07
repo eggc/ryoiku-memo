@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -237,7 +238,7 @@ fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) 
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Filled.Book,
+                    Icons.Filled.EditCalendar,
                     contentDescription = "日記",
                     modifier = Modifier.size(24.dp)
                 )

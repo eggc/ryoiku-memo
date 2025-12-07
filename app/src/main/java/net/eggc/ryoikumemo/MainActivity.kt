@@ -8,21 +8,27 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -128,9 +134,14 @@ fun RyoikumemoApp() {
                             modifier = Modifier.clickable { currentDestination = AppDestinations.NOTE },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(
+                                imageVector = Icons.Filled.Book,
+                                contentDescription = "ノート選択"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(currentNote?.name ?: "")
                             Icon(
-                                Icons.Default.ArrowDropDown,
+                                Icons.Filled.ArrowDropDown,
                                 contentDescription = "ノートを切り替え"
                             )
                         }
@@ -148,7 +159,12 @@ fun RyoikumemoApp() {
                                 placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
                             )
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 )
             }
         ) { innerPadding ->
@@ -233,7 +249,7 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
-    DIARY("日記", Icons.Default.Book),
+    DIARY("日記", Icons.Filled.EditCalendar),
     STAMP("スタンプ", Icons.Default.AccessTime),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
