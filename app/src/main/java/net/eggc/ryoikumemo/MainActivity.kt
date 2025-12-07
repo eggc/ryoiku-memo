@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.EditCalendar
-import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +50,7 @@ import coil.compose.AsyncImage
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.SharedPreferencesTimelineRepository
@@ -88,17 +88,18 @@ fun RyoikumemoApp() {
         }
     }
     var currentNote by remember { mutableStateOf<Note?>(null) }
+    val appPreferences = remember { AppPreferences(context) }
 
     LaunchedEffect(timelineRepository) {
         coroutineScope.launch {
             val notes = timelineRepository.getNotes()
-            if (currentNote == null) {
-                currentNote = if (notes.isEmpty()) {
-                    timelineRepository.createNote("ノート1")
-                } else {
-                    notes.first()
-                }
+            if (notes.isNotEmpty()) {
+                val lastSelectedNoteId = appPreferences.getLastSelectedNoteId()
+                currentNote = notes.find { it.id == lastSelectedNoteId } ?: notes.first()
+            } else {
+                currentNote = timelineRepository.createNote("ノート1")
             }
+            currentNote?.let { appPreferences.saveLastSelectedNoteId(it.id) }
         }
     }
 
@@ -219,10 +220,12 @@ fun RyoikumemoApp() {
                         currentNoteId = currentNote!!.id,
                         onNoteSelected = {
                             currentNote = it
+                            appPreferences.saveLastSelectedNoteId(it.id)
                             currentDestination = AppDestinations.TIMELINE
                         },
                         onNoteUpdated = { updatedNote ->
                             currentNote = updatedNote
+                            appPreferences.saveLastSelectedNoteId(updatedNote.id)
                         }
                     )
 
