@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.AlertDialog
@@ -28,6 +30,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -255,12 +258,12 @@ fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) 
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onEditClick) {
-                    Text("編集")
+                IconButton(onClick = onEditClick) {
+                    Icon(Icons.Default.Edit, contentDescription = "編集")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onDeleteClick) {
-                    Text("削除")
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "削除")
                 }
             }
         }
@@ -297,12 +300,12 @@ fun StampHistoryCard(timestamp: Long, stampType: StampType, note: String, onEdit
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                TextButton(onClick = onEditClick) {
-                    Text("編集")
+                IconButton(onClick = onEditClick) {
+                    Icon(Icons.Default.Edit, contentDescription = "編集")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onDeleteClick) {
-                    Text("削除")
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "削除")
                 }
             }
         }
