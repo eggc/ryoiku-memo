@@ -3,7 +3,6 @@ package net.eggc.ryoikumemo
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,19 +16,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -131,28 +133,48 @@ fun TimelineScreen(
     Column(modifier = modifier) {
         val filterOptions: List<TimelineFilter> =
             listOf(TimelineFilter.All, TimelineFilter.DiaryOnly) + StampType.entries.map { TimelineFilter.StampOnly(it) }
+        var expanded by remember { mutableStateOf(false) }
 
-        Row(
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
             modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            filterOptions.forEach { filter ->
-                FilterChip(
-                    modifier = Modifier.padding(end = 8.dp),
-                    selected = filter == currentFilter,
-                    onClick = { currentFilter = filter },
-                    label = {
-                        Text(
-                            when (filter) {
-                                is TimelineFilter.All -> "すべて"
-                                is TimelineFilter.DiaryOnly -> "日記"
-                                is TimelineFilter.StampOnly -> filter.type.label
-                            }
-                        )
-                    }
-                )
+            TextField(
+                value = when (val filter = currentFilter) {
+                    is TimelineFilter.All -> "すべて"
+                    is TimelineFilter.DiaryOnly -> "日記"
+                    is TimelineFilter.StampOnly -> filter.type.label
+                },
+                onValueChange = {},
+                readOnly = true,
+                leadingIcon = { Icon(Icons.Default.FilterList, contentDescription = "フィルター") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier.menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                filterOptions.forEach { filter ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                when (filter) {
+                                    is TimelineFilter.All -> "すべて"
+                                    is TimelineFilter.DiaryOnly -> "日記"
+                                    is TimelineFilter.StampOnly -> filter.type.label
+                                }
+                            )
+                        },
+                        onClick = {
+                            currentFilter = filter
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
         if (isLoading) {
