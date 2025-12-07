@@ -22,21 +22,16 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditCalendar
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,8 +46,6 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.DiaryItem
 import net.eggc.ryoikumemo.data.StampItem
-import net.eggc.ryoikumemo.data.StampType
-import net.eggc.ryoikumemo.data.TimelineFilter
 import net.eggc.ryoikumemo.data.TimelineItem
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.text.SimpleDateFormat
@@ -78,7 +71,6 @@ fun TimelineScreen(
     val coroutineScope = rememberCoroutineScope()
     var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
-    var currentFilter by remember { mutableStateOf<TimelineFilter>(TimelineFilter.All) }
     var isLoading by remember { mutableStateOf(true) }
     var currentWeek by remember { mutableStateOf(LocalDate.now()) }
 
@@ -133,67 +125,13 @@ fun TimelineScreen(
         )
     }
 
-    val filteredItems = remember(timelineItems, currentFilter) {
-        when (val filter = currentFilter) {
-            is TimelineFilter.All -> timelineItems
-            is TimelineFilter.DiaryOnly -> timelineItems.filterIsInstance<DiaryItem>()
-            is TimelineFilter.StampOnly -> timelineItems.filter { it is StampItem && it.type == filter.type }
-        }
-    }
-
-    val groupedItems = filteredItems.groupBy {
+    val groupedItems = timelineItems.groupBy {
         Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
     }
 
     Column(modifier = modifier) {
-        val filterOptions: List<TimelineFilter> =
-            listOf(TimelineFilter.All, TimelineFilter.DiaryOnly) + StampType.entries.map { TimelineFilter.StampOnly(it) }
-        var expanded by remember { mutableStateOf(false) }
-
         WeekSelector(currentWeek = currentWeek, onWeekChange = { currentWeek = it })
 
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            TextField(
-                value = when (val filter = currentFilter) {
-                    is TimelineFilter.All -> "すべて"
-                    is TimelineFilter.DiaryOnly -> "日記"
-                    is TimelineFilter.StampOnly -> filter.type.label
-                },
-                onValueChange = {},
-                readOnly = true,
-                leadingIcon = { Icon(Icons.Default.FilterList, contentDescription = "フィルター") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.menuAnchor()
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                filterOptions.forEach { filter ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                when (filter) {
-                                    is TimelineFilter.All -> "すべて"
-                                    is TimelineFilter.DiaryOnly -> "日記"
-                                    is TimelineFilter.StampOnly -> filter.type.label
-                                }
-                            )
-                        },
-                        onClick = {
-                            currentFilter = filter
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -203,7 +141,7 @@ fun TimelineScreen(
                 if (groupedItems.isEmpty()) {
                     item {
                         Text(
-                            text = if (currentFilter == TimelineFilter.All) "まだ記録はありません。" else "この条件の記録はありません。",
+                            text = "この週の記録はありません。",
                             modifier = Modifier.padding(16.dp)
                         )
                     }
@@ -278,7 +216,6 @@ fun WeekSelector(currentWeek: LocalDate, onWeekChange: (LocalDate) -> Unit) {
     }
 }
 
-
 @Composable
 fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
     Card(
@@ -319,7 +256,13 @@ fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) 
 }
 
 @Composable
-fun StampHistoryCard(timestamp: Long, stampType: StampType, note: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
+fun StampHistoryCard(
+    timestamp: Long,
+    stampType: net.eggc.ryoikumemo.data.StampType,
+    note: String,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
