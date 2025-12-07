@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditCalendar
@@ -55,9 +56,12 @@ import net.eggc.ryoikumemo.data.TimelineFilter
 import net.eggc.ryoikumemo.data.TimelineItem
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.text.SimpleDateFormat
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.Date
 import java.util.Locale
 
@@ -76,17 +80,24 @@ fun TimelineScreen(
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var currentFilter by remember { mutableStateOf<TimelineFilter>(TimelineFilter.All) }
     var isLoading by remember { mutableStateOf(true) }
+    var currentWeek by remember { mutableStateOf(LocalDate.now()) }
 
-    LaunchedEffect(noteId) {
-        isLoading = true
-        try {
-            timelineItems = timelineRepository.getTimelineItems(noteId)
-        } catch (e: Exception) {
-            Log.e("TimelineScreen", "Failed to load timeline items", e)
-            Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
-        } finally {
-            isLoading = false
+    fun refreshTimeline() {
+        coroutineScope.launch {
+            isLoading = true
+            try {
+                timelineItems = timelineRepository.getTimelineItemsForWeek(noteId, currentWeek)
+            } catch (e: Exception) {
+                Log.e("TimelineScreen", "Failed to load timeline items", e)
+                Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+            } finally {
+                isLoading = false
+            }
         }
+    }
+
+    LaunchedEffect(noteId, currentWeek) {
+        refreshTimeline()
     }
 
     if (showDeleteDialogFor != null) {
@@ -101,7 +112,7 @@ fun TimelineScreen(
                         coroutineScope.launch {
                             try {
                                 timelineRepository.deleteTimelineItem(noteId, itemToDelete)
-                                timelineItems = timelineRepository.getTimelineItems(noteId) // Refresh the list
+                                refreshTimeline()
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
@@ -138,6 +149,8 @@ fun TimelineScreen(
         val filterOptions: List<TimelineFilter> =
             listOf(TimelineFilter.All, TimelineFilter.DiaryOnly) + StampType.entries.map { TimelineFilter.StampOnly(it) }
         var expanded by remember { mutableStateOf(false) }
+
+        WeekSelector(currentWeek = currentWeek, onWeekChange = { currentWeek = it })
 
         ExposedDropdownMenuBox(
             expanded = expanded,
@@ -197,7 +210,10 @@ fun TimelineScreen(
                 } else {
                     groupedItems.forEach { (date, items) ->
                         stickyHeader {
-                            Surface(modifier = Modifier.fillParentMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
+                            Surface(
+                                modifier = Modifier.fillParentMaxWidth(),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
                                 Text(
                                     text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
                                     style = MaterialTheme.typography.titleSmall,
@@ -205,7 +221,12 @@ fun TimelineScreen(
                                 )
                             }
                         }
-                        items(items, key = { it.timestamp }) { item ->
+                        items(items, key = {
+                            when (it) {
+                                is DiaryItem -> "diary_${it.date}"
+                                is StampItem -> "stamp_${it.timestamp}"
+                            }
+                        }) { item ->
                             Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                                 when (item) {
                                     is DiaryItem -> DiaryCard(
@@ -230,6 +251,33 @@ fun TimelineScreen(
         }
     }
 }
+
+@Composable
+fun WeekSelector(currentWeek: LocalDate, onWeekChange: (LocalDate) -> Unit) {
+    val startOfWeek = currentWeek.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val endOfWeek = currentWeek.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+    val formatter = DateTimeFormatter.ofPattern("M月d日")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        IconButton(onClick = { onWeekChange(currentWeek.minusWeeks(1)) }) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "前の週")
+        }
+        Text(
+            text = "${startOfWeek.format(formatter)}〜${endOfWeek.format(formatter)}",
+            style = MaterialTheme.typography.titleMedium
+        )
+        IconButton(onClick = { onWeekChange(currentWeek.plusWeeks(1)) }) {
+            Icon(Icons.Default.ArrowForward, contentDescription = "次の週")
+        }
+    }
+}
+
 
 @Composable
 fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.DiaryItem
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.Instant
 import java.time.LocalDate
@@ -49,13 +50,15 @@ fun DiaryScreen(
     val initialDate = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
     var currentDate by remember { mutableStateOf(initialDate) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var originalDiaryItem by remember { mutableStateOf<DiaryItem?>(null) }
 
     var text by remember { mutableStateOf("") }
 
     LaunchedEffect(date, noteId) {
-        val diaryItem = timelineRepository.getTimelineItems(noteId).find { it is net.eggc.ryoikumemo.data.DiaryItem && it.date == date }
+        val diaryItem = timelineRepository.getDiaryItem(noteId, date)
         if (diaryItem != null) {
-            text = (diaryItem as net.eggc.ryoikumemo.data.DiaryItem).text
+            originalDiaryItem = diaryItem
+            text = diaryItem.text
         } else {
             text = ""
         }
@@ -114,9 +117,8 @@ fun DiaryScreen(
                 coroutineScope.launch {
                     val newDateStr = currentDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                     val originalDateStr = date
-                    if (newDateStr != originalDateStr) {
-                        val oldItem = net.eggc.ryoikumemo.data.DiaryItem(0L, "", originalDateStr)
-                        timelineRepository.deleteTimelineItem(noteId, oldItem)
+                    if (newDateStr != originalDateStr && originalDiaryItem != null) {
+                        timelineRepository.deleteTimelineItem(noteId, originalDiaryItem!!)
                     }
                     timelineRepository.saveDiary(noteId, newDateStr, text)
                     Toast.makeText(context, "日記を保存しました", Toast.LENGTH_SHORT).show()

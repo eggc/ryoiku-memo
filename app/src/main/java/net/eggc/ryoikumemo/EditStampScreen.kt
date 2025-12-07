@@ -67,13 +67,8 @@ fun EditStampScreen(
     var currentTimestamp by remember { mutableStateOf(stampId) }
 
     LaunchedEffect(stampId, noteId) {
-        stampItem = timelineRepository.getTimelineItems(noteId).find { it.timestamp == stampId } as? StampItem
-        suggestions = timelineRepository.getTimelineItems(noteId)
-            .filterIsInstance<StampItem>()
-            .map { it.note }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .take(10)
+        stampItem = timelineRepository.getStampItem(noteId, stampId)
+        suggestions = timelineRepository.getStampNoteSuggestions(noteId)
     }
 
     if (stampItem == null) {

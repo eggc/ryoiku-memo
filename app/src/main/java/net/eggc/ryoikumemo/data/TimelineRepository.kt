@@ -1,13 +1,16 @@
 package net.eggc.ryoikumemo.data
 
 import android.content.Context
-import com.google.firebase.auth.auth
-import com.google.firebase.firestore.firestore
 import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import java.util.UUID
 
 data class Note(val id: String, val name: String)
@@ -18,7 +21,11 @@ interface TimelineRepository {
     suspend fun updateNote(note: Note)
     suspend fun deleteNote(noteId: String)
 
-    suspend fun getTimelineItems(noteId: String): List<TimelineItem>
+    suspend fun getTimelineItemsForWeek(noteId: String, dateInWeek: LocalDate): List<TimelineItem>
+    suspend fun getDiaryItem(noteId: String, date: String): DiaryItem?
+    suspend fun getStampItem(noteId: String, timestamp: Long): StampItem?
+    suspend fun getStampNoteSuggestions(noteId: String): List<String>
+
     suspend fun saveDiary(noteId: String, date: String, text: String)
     suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
     suspend fun deleteTimelineItem(noteId: String, item: TimelineItem)
@@ -61,26 +68,74 @@ class FirestoreTimelineRepository : TimelineRepository {
     private fun timelineCollection(noteId: String) =
         notesCollection.document(noteId).collection("timeline")
 
-    override suspend fun getTimelineItems(noteId: String): List<TimelineItem> {
-        val diaryItems = timelineCollection(noteId).whereEqualTo("itemType", "diary").get().await().map {
-            DiaryItem(
-                timestamp = it.getLong("timestamp")!!,
-                text = it.getString("text")!!,
-                date = it.getString("date")!!
-            )
+    override suspend fun getTimelineItemsForWeek(noteId: String, dateInWeek: LocalDate): List<TimelineItem> {
+        val startOfWeek = dateInWeek.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val endOfWeek = dateInWeek.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+
+        val startTimestamp = startOfWeek.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTimestamp = endOfWeek.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val snapshot = timelineCollection(noteId)
+            .whereGreaterThanOrEqualTo("timestamp", startTimestamp)
+            .whereLessThan("timestamp", endTimestamp)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            when (doc.getString("itemType")) {
+                "diary" -> DiaryItem(
+                    timestamp = doc.getLong("timestamp")!!,
+                    text = doc.getString("text")!!,
+                    date = doc.getString("date")!!
+                )
+                "stamp" -> StampItem(
+                    timestamp = doc.getLong("timestamp")!!,
+                    type = StampType.valueOf(doc.getString("type")!!),
+                    note = doc.getString("note")!!
+                )
+                else -> null
+            }
         }
-        val stampItems = timelineCollection(noteId).whereEqualTo("itemType", "stamp").get().await().map {
-            StampItem(
-                timestamp = it.getLong("timestamp")!!,
-                type = StampType.valueOf(it.getString("type")!!),
-                note = it.getString("note")!!
-            )
-        }
-        return (diaryItems + stampItems).sortedByDescending { it.timestamp }
     }
 
+    override suspend fun getDiaryItem(noteId: String, date: String): DiaryItem? {
+        val doc = timelineCollection(noteId).document(date).get().await()
+        if (!doc.exists()) return null
+        return DiaryItem(
+            timestamp = doc.getLong("timestamp")!!,
+            text = doc.getString("text")!!,
+            date = doc.getString("date")!!
+        )
+    }
+
+    override suspend fun getStampItem(noteId: String, timestamp: Long): StampItem? {
+        val doc = timelineCollection(noteId).document(timestamp.toString()).get().await()
+        if (!doc.exists()) return null
+        return StampItem(
+            timestamp = doc.getLong("timestamp")!!,
+            type = StampType.valueOf(doc.getString("type")!!),
+            note = doc.getString("note")!!
+        )
+    }
+
+    override suspend fun getStampNoteSuggestions(noteId: String): List<String> {
+        return timelineCollection(noteId)
+            .whereEqualTo("itemType", "stamp")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(100) // Look at last 100 stamps for suggestions
+            .get()
+            .await()
+            .mapNotNull { it.getString("note") }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(10)
+    }
+
+
     override suspend fun saveDiary(noteId: String, date: String, text: String) {
-        val diaryTimestamp = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val diaryTimestamp = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val diaryMap = hashMapOf(
             "itemType" to "diary",
             "timestamp" to diaryTimestamp,
@@ -137,10 +192,12 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
     private fun diaryPrefs(noteId: String) = context.getSharedPreferences("diary_prefs_$noteId", Context.MODE_PRIVATE)
     private fun stampPrefs(noteId: String) = context.getSharedPreferences("stamp_prefs_$noteId", Context.MODE_PRIVATE)
 
-    override suspend fun getTimelineItems(noteId: String): List<TimelineItem> {
+    override suspend fun getTimelineItemsForWeek(noteId: String, dateInWeek: LocalDate): List<TimelineItem> {
+        // SharedPreferences implementation doesn't support week-based filtering easily, returning all for simplicity
         val diaries = diaryPrefs(noteId).all.mapNotNull { (key, value) ->
             try {
-                val diaryTimestamp = LocalDate.parse(key, dateParser).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val diaryTimestamp =
+                    LocalDate.parse(key, dateParser).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
                 DiaryItem(timestamp = diaryTimestamp, text = value as String, date = key)
             } catch (e: Exception) {
                 null
@@ -161,6 +218,30 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
 
         return (diaries + stamps).sortedByDescending { it.timestamp }
     }
+
+    override suspend fun getDiaryItem(noteId: String, date: String): DiaryItem? {
+        val text = diaryPrefs(noteId).getString(date, null) ?: return null
+        val timestamp = LocalDate.parse(date, dateParser).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        return DiaryItem(timestamp, text, date)
+    }
+
+    override suspend fun getStampItem(noteId: String, timestamp: Long): StampItem? {
+        val valueString = stampPrefs(noteId).getString(timestamp.toString(), null) ?: return null
+        val parts = valueString.split('|', limit = 2)
+        val type = StampType.valueOf(parts[0])
+        val note = if (parts.size > 1) parts[1] else ""
+        return StampItem(timestamp = timestamp, type = type, note = note)
+    }
+
+    override suspend fun getStampNoteSuggestions(noteId: String): List<String> {
+        return stampPrefs(noteId).all.values
+            .mapNotNull { it as? String }
+            .map { it.split('|', limit = 2).getOrElse(1) { "" } }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(10)
+    }
+
 
     override suspend fun saveDiary(noteId: String, date: String, text: String) {
         with(diaryPrefs(noteId).edit()) {
