@@ -1,18 +1,27 @@
 package net.eggc.ryoikumemo
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -25,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -41,6 +51,8 @@ fun NoteScreen(
     val coroutineScope = rememberCoroutineScope()
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
+    var showEditNoteDialog by remember { mutableStateOf<Note?>(null) }
+    var showDeleteNoteDialog by remember { mutableStateOf<Note?>(null) }
 
     fun refreshNotes() {
         coroutineScope.launch {
@@ -53,7 +65,7 @@ fun NoteScreen(
     }
 
     if (showAddNoteDialog) {
-        AddNoteDialog(
+        EditNoteDialog(
             onDismiss = { showAddNoteDialog = false },
             onConfirm = { noteName ->
                 coroutineScope.launch {
@@ -61,6 +73,34 @@ fun NoteScreen(
                     refreshNotes()
                 }
                 showAddNoteDialog = false
+            }
+        )
+    }
+
+    showEditNoteDialog?.let { note ->
+        EditNoteDialog(
+            initialName = note.name,
+            onDismiss = { showEditNoteDialog = null },
+            onConfirm = { newName ->
+                coroutineScope.launch {
+                    timelineRepository.updateNote(note.copy(name = newName))
+                    refreshNotes()
+                }
+                showEditNoteDialog = null
+            }
+        )
+    }
+
+    showDeleteNoteDialog?.let { note ->
+        DeleteNoteDialog(
+            note = note,
+            onDismiss = { showDeleteNoteDialog = null },
+            onConfirm = {
+                coroutineScope.launch {
+                    timelineRepository.deleteNote(note.id)
+                    refreshNotes()
+                }
+                showDeleteNoteDialog = null
             }
         )
     }
@@ -73,19 +113,35 @@ fun NoteScreen(
             }
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding).fillMaxSize()) {
+        LazyColumn(modifier = Modifier
+            .padding(padding)
+            .fillMaxSize()) {
             items(notes) { note ->
                 Card(
-                    onClick = { onNoteSelected(note) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clickable { onNoteSelected(note) }
                 ) {
-                    Text(
-                        text = note.name,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = note.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { showEditNoteDialog = note }) {
+                            Icon(Icons.Default.Edit, contentDescription = "編集")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { showDeleteNoteDialog = note }) {
+                            Icon(Icons.Default.Delete, contentDescription = "削除")
+                        }
+                    }
                 }
             }
         }
@@ -93,14 +149,15 @@ fun NoteScreen(
 }
 
 @Composable
-private fun AddNoteDialog(
+private fun EditNoteDialog(
+    initialName: String = "",
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var noteName by remember { mutableStateOf("") }
+    var noteName by remember { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新しいノート") },
+        title = { Text(if (initialName.isEmpty()) "新しいノート" else "ノート名を編集") },
         text = {
             TextField(
                 value = noteName,
@@ -116,7 +173,30 @@ private fun AddNoteDialog(
                     }
                 }
             ) {
-                Text("作成")
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("キャンセル")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeleteNoteDialog(
+    note: Note,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("ノートを削除") },
+        text = { Text("${note.name} と、それに紐づくすべての記録を削除します。よろしいですか？") },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("削除")
             }
         },
         dismissButton = {

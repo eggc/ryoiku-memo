@@ -15,6 +15,8 @@ data class Note(val id: String, val name: String)
 interface TimelineRepository {
     suspend fun getNotes(): List<Note>
     suspend fun createNote(name: String): Note
+    suspend fun updateNote(note: Note)
+    suspend fun deleteNote(noteId: String)
 
     suspend fun getTimelineItems(noteId: String): List<TimelineItem>
     suspend fun saveDiary(noteId: String, date: String, text: String)
@@ -40,6 +42,20 @@ class FirestoreTimelineRepository : TimelineRepository {
         val noteData = hashMapOf("name" to name)
         val noteRef = notesCollection.add(noteData).await()
         return Note(id = noteRef.id, name = name)
+    }
+
+    override suspend fun updateNote(note: Note) {
+        notesCollection.document(note.id).update("name", note.name).await()
+    }
+
+    override suspend fun deleteNote(noteId: String) {
+        val timelineItems = timelineCollection(noteId).get().await()
+        val batch = db.batch()
+        for (document in timelineItems.documents) {
+            batch.delete(document.reference)
+        }
+        batch.commit().await()
+        notesCollection.document(noteId).delete().await()
     }
 
     private fun timelineCollection(noteId: String) =
@@ -106,6 +122,16 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
         val id = UUID.randomUUID().toString()
         notesPrefs.edit().putString(id, name).apply()
         return Note(id, name)
+    }
+
+    override suspend fun updateNote(note: Note) {
+        notesPrefs.edit().putString(note.id, note.name).apply()
+    }
+
+    override suspend fun deleteNote(noteId: String) {
+        diaryPrefs(noteId).edit().clear().apply()
+        stampPrefs(noteId).edit().clear().apply()
+        notesPrefs.edit().remove(noteId).apply()
     }
 
     private fun diaryPrefs(noteId: String) = context.getSharedPreferences("diary_prefs_$noteId", Context.MODE_PRIVATE)
