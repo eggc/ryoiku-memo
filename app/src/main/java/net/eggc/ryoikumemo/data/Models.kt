@@ -2,6 +2,7 @@ package net.eggc.ryoikumemo.data
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.SentimentSatisfied
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
@@ -33,7 +34,8 @@ sealed interface TimelineFilter {
 enum class StampType(val label: String, val icon: ImageVector) {
     SLEEP("ねる", Icons.Default.Bedtime),
     WAKE_UP("おきる", Icons.Default.WbSunny),
-    TANTRUM("かんしゃく", Icons.Default.SentimentVeryDissatisfied),
+    PAINFUL("つらい", Icons.Default.SentimentVeryDissatisfied),
+    FUN("たのしい", Icons.Default.SentimentSatisfied),
+    TANTRUM("かんしゃく", Icons.Default.LocalFireDepartment),
     MEDICATION("おくすり", Icons.Default.Medication),
-    FUN("たのしい", Icons.Default.SentimentSatisfied)
 }
