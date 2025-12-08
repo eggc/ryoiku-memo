@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
@@ -174,6 +175,12 @@ fun RyoikumemoApp() {
                         }
                     )
 
+                    AppDestinations.GRAPH -> GraphScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        timelineRepository = timelineRepository,
+                        noteId = currentNote!!.id
+                    )
+
                     AppDestinations.STAMP -> StampScreen(
                         modifier = Modifier.padding(innerPadding),
                         timelineRepository = timelineRepository,
@@ -233,6 +240,7 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
+    GRAPH("グラフ", Icons.Default.Assessment),
     STAMP("スタンプ", Icons.Default.AccessTime),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
