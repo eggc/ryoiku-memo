@@ -104,9 +104,32 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
         val graphWidth = canvasWidth - yAxisLabelWidth.toPx() - rightPadding.toPx()
         val graphHeight = canvasHeight - topPadding.toPx() - bottomPadding.toPx()
 
-        // Y-Axis labels (days)
         val daysInMonth = month.lengthOfMonth()
         val dayHeight = graphHeight / daysInMonth
+        
+        // Draw grid lines
+        // Horizontal lines
+        for (i in 1..daysInMonth) {
+            val y = topPadding.toPx() + i * dayHeight
+            drawLine(
+                color = Color.LightGray,
+                start = Offset(yAxisLabelWidth.toPx(), y),
+                end = Offset(yAxisLabelWidth.toPx() + graphWidth, y),
+                strokeWidth = 1f
+            )
+        }
+        // Vertical lines
+        for (i in 0..24 step 3) {
+            val x = yAxisLabelWidth.toPx() + (i.toFloat() / 24f) * graphWidth
+            drawLine(
+                color = Color.LightGray,
+                start = Offset(x, topPadding.toPx()),
+                end = Offset(x, topPadding.toPx() + graphHeight),
+                strokeWidth = 1f
+            )
+        }
+
+        // Y-Axis labels (days)
         for (i in 1..daysInMonth) {
             drawContext.canvas.nativeCanvas.drawText(
                 "$i",
@@ -139,12 +162,8 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
                     color = Color.Blue,
                     start = Offset(startX, y),
                     end = Offset(endX, y),
-                    strokeWidth = 8f
+                    strokeWidth = 24f
                 )
-
-                // Draw points
-                drawCircle(Color.Blue, radius = 8f, center = Offset(startX, y))
-                drawCircle(Color.Blue, radius = 8f, center = Offset(endX, y))
             }
         }
     }
