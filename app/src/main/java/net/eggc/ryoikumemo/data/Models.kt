@@ -30,10 +30,10 @@ sealed interface TimelineFilter {
 enum class StampType(val label: String, val icon: ImageVector) {
     SLEEP("ねる", Icons.Default.Bedtime),
     WAKE_UP("おきる", Icons.Default.WbSunny),
+    MEDICATION("おくすり", Icons.Default.Medication),
     PAINFUL("つらい", Icons.Default.SentimentVeryDissatisfied),
     FUN("たのしい", Icons.Filled.SentimentSatisfiedAlt),
     TANTRUM("かんしゃく", Icons.Default.LocalFireDepartment),
-    MEDICATION("おくすり", Icons.Default.Medication),
     POO("うんち", Icons.Filled.Hexagon),
     PEE("おしっこ", Icons.Default.WaterDrop),
     MEMO("メモ", Icons.Default.StickyNote2),
