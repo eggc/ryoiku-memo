@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.StampItem
@@ -113,6 +115,7 @@ fun GraphScreen(
 
 @Composable
 private fun SleepChartHeader(yAxisLabelWidth: Dp, rightPadding: Dp, headerHeight: Dp) {
+    val textColor = MaterialTheme.colorScheme.onSurface
     Canvas(modifier = Modifier
         .fillMaxWidth()
         .height(headerHeight)
@@ -127,7 +130,11 @@ private fun SleepChartHeader(yAxisLabelWidth: Dp, rightPadding: Dp, headerHeight
                 "$i:00",
                 x,
                 headerHeight.toPx() - 10f,
-                android.graphics.Paint().apply { textSize = 30f; textAlign = android.graphics.Paint.Align.CENTER }
+                android.graphics.Paint().apply {
+                    textSize = 30f
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    color = textColor.toArgb()
+                }
             )
         }
     }
@@ -142,6 +149,8 @@ private fun SleepChartBody(
     bottomPadding: Dp,
     dayHeight: Dp
 ) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val primaryColor = MaterialTheme.colorScheme.primary
     val daysInMonth = month.lengthOfMonth()
     val totalCanvasHeight = (dayHeight * daysInMonth) + bottomPadding
 
@@ -181,7 +190,10 @@ private fun SleepChartBody(
                 "$i",
                 0f,
                 i * dayHeightPx,
-                android.graphics.Paint().apply { textSize = 30f }
+                android.graphics.Paint().apply {
+                    textSize = 30f
+                    color = textColor.toArgb()
+                }
             )
         }
 
@@ -194,7 +206,7 @@ private fun SleepChartBody(
 
                 // Draw line
                 drawLine(
-                    color = Color.Blue,
+                    color = primaryColor,
                     start = Offset(startX, y),
                     end = Offset(endX, y),
                     strokeWidth = 72f
