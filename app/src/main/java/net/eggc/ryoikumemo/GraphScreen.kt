@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
@@ -88,38 +89,74 @@ fun GraphScreen(
         sleepData = processedData
     }
 
-    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+    val yAxisLabelWidth = 30.dp
+    val rightPadding = 20.dp
+    val headerHeight = 30.dp
+    val bottomPadding = 30.dp
+    val dayHeight = 48.dp
+
+    Column(modifier = modifier) {
         MonthSelector(currentMonth = currentMonth, onMonthChange = { currentMonth = it })
-        SleepChart(sleepData = sleepData, month = currentMonth)
+        SleepChartHeader(yAxisLabelWidth, rightPadding, headerHeight)
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            SleepChartBody(
+                sleepData = sleepData,
+                month = currentMonth,
+                yAxisLabelWidth = yAxisLabelWidth,
+                rightPadding = rightPadding,
+                bottomPadding = bottomPadding,
+                dayHeight = dayHeight
+            )
+        }
     }
 }
 
 @Composable
-fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) {
-    val yAxisLabelWidth = 60.dp
-    val rightPadding = 20.dp
-    val topPadding = 30.dp
-    val bottomPadding = 30.dp
+private fun SleepChartHeader(yAxisLabelWidth: Dp, rightPadding: Dp, headerHeight: Dp) {
+    Canvas(modifier = Modifier
+        .fillMaxWidth()
+        .height(headerHeight)
+        .padding(horizontal = 8.dp)
+    ) { 
+        val canvasWidth = size.width
+        val graphWidth = canvasWidth - yAxisLabelWidth.toPx() - rightPadding.toPx()
 
+        for (i in 0..24 step 3) {
+            val x = yAxisLabelWidth.toPx() + (i.toFloat() / 24f) * graphWidth
+            drawContext.canvas.nativeCanvas.drawText(
+                "$i:00",
+                x,
+                headerHeight.toPx() - 10f,
+                android.graphics.Paint().apply { textSize = 30f; textAlign = android.graphics.Paint.Align.CENTER }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SleepChartBody(
+    sleepData: Map<Int, List<Pair<Float, Float>>>,
+    month: LocalDate,
+    yAxisLabelWidth: Dp,
+    rightPadding: Dp,
+    bottomPadding: Dp,
+    dayHeight: Dp
+) {
     val daysInMonth = month.lengthOfMonth()
-    val dayHeightDp = 48.dp
-    val totalCanvasHeight = (dayHeightDp * daysInMonth) + topPadding + bottomPadding
+    val totalCanvasHeight = (dayHeight * daysInMonth) + bottomPadding
 
     Canvas(modifier = Modifier
         .fillMaxWidth()
         .height(totalCanvasHeight)
         .padding(8.dp)) { 
         val canvasWidth = size.width
-        val canvasHeight = size.height
         val graphWidth = canvasWidth - yAxisLabelWidth.toPx() - rightPadding.toPx()
-        val graphHeight = canvasHeight - topPadding.toPx() - bottomPadding.toPx()
+        val dayHeightPx = dayHeight.toPx()
 
-        val dayHeight = graphHeight / daysInMonth
-        
         // Draw grid lines
         // Horizontal lines
         for (i in 1..daysInMonth) {
-            val y = topPadding.toPx() + i * dayHeight
+            val y = i * dayHeightPx
             drawLine(
                 color = Color.LightGray,
                 start = Offset(yAxisLabelWidth.toPx(), y),
@@ -132,8 +169,8 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
             val x = yAxisLabelWidth.toPx() + (i.toFloat() / 24f) * graphWidth
             drawLine(
                 color = Color.LightGray,
-                start = Offset(x, topPadding.toPx()),
-                end = Offset(x, topPadding.toPx() + graphHeight),
+                start = Offset(x, 0f),
+                end = Offset(x, size.height),
                 strokeWidth = 1f
             )
         }
@@ -143,19 +180,8 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
             drawContext.canvas.nativeCanvas.drawText(
                 "$i",
                 0f,
-                topPadding.toPx() + i * dayHeight,
+                i * dayHeightPx,
                 android.graphics.Paint().apply { textSize = 30f }
-            )
-        }
-
-        // X-Axis labels (hours)
-        for (i in 0..24 step 3) {
-            val x = yAxisLabelWidth.toPx() + (i.toFloat() / 24f) * graphWidth
-            drawContext.canvas.nativeCanvas.drawText(
-                "$i:00",
-                x,
-                topPadding.toPx() - 10f,
-                android.graphics.Paint().apply { textSize = 30f; textAlign = android.graphics.Paint.Align.CENTER }
             )
         }
 
@@ -164,7 +190,7 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
             intervals.forEach { (startMinutes, endMinutes) ->
                 val startX = yAxisLabelWidth.toPx() + (startMinutes / (24 * 60)) * graphWidth
                 val endX = yAxisLabelWidth.toPx() + (endMinutes / (24 * 60)) * graphWidth
-                val y = topPadding.toPx() + day * dayHeight
+                val y = day * dayHeightPx
 
                 // Draw line
                 drawLine(
