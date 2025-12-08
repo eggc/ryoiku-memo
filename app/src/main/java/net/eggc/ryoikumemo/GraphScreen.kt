@@ -2,8 +2,11 @@ package net.eggc.ryoikumemo
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,7 +88,7 @@ fun GraphScreen(
         sleepData = processedData
     }
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         MonthSelector(currentMonth = currentMonth, onMonthChange = { currentMonth = it })
         SleepChart(sleepData = sleepData, month = currentMonth)
     }
@@ -98,13 +101,19 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
     val topPadding = 30.dp
     val bottomPadding = 30.dp
 
-    Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) { 
+    val daysInMonth = month.lengthOfMonth()
+    val dayHeightDp = 48.dp
+    val totalCanvasHeight = (dayHeightDp * daysInMonth) + topPadding + bottomPadding
+
+    Canvas(modifier = Modifier
+        .fillMaxWidth()
+        .height(totalCanvasHeight)
+        .padding(8.dp)) { 
         val canvasWidth = size.width
         val canvasHeight = size.height
         val graphWidth = canvasWidth - yAxisLabelWidth.toPx() - rightPadding.toPx()
         val graphHeight = canvasHeight - topPadding.toPx() - bottomPadding.toPx()
 
-        val daysInMonth = month.lengthOfMonth()
         val dayHeight = graphHeight / daysInMonth
         
         // Draw grid lines
@@ -162,7 +171,7 @@ fun SleepChart(sleepData: Map<Int, List<Pair<Float, Float>>>, month: LocalDate) 
                     color = Color.Blue,
                     start = Offset(startX, y),
                     end = Offset(endX, y),
-                    strokeWidth = 24f
+                    strokeWidth = 72f
                 )
             }
         }
