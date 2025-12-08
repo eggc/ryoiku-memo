@@ -39,7 +39,7 @@ fun StampScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Fixed(3),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -75,7 +75,7 @@ fun StampCard(label: String, icon: ImageVector, onClick: () -> Unit) {
         ) {
             Icon(icon, contentDescription = label, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = label, style = MaterialTheme.typography.titleLarge)
+            Text(text = label, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
