@@ -38,6 +38,7 @@ fun StampScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val stampTypes = StampType.entries.filter { it != StampType.MEMO }
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = modifier.fillMaxSize(),
@@ -45,7 +46,7 @@ fun StampScreen(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(StampType.entries) { stampType ->
+        items(stampTypes) { stampType ->
             StampCard(
                 label = stampType.label,
                 icon = stampType.icon,
@@ -53,6 +54,19 @@ fun StampScreen(
                     coroutineScope.launch {
                         timelineRepository.saveStamp(noteId, stampType, "")
                         Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                        onStampSaved()
+                    }
+                }
+            )
+        }
+        item {
+            StampCard(
+                label = StampType.MEMO.label,
+                icon = StampType.MEMO.icon,
+                onClick = {
+                    coroutineScope.launch {
+                        timelineRepository.saveStamp(noteId, StampType.MEMO, "")
+                        Toast.makeText(context, "${StampType.MEMO.label}を記録しました", Toast.LENGTH_SHORT).show()
                         onStampSaved()
                     }
                 }
