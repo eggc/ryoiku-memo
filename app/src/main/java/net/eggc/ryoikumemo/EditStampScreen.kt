@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.StampItem
+import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.Instant
 import java.time.ZoneId
@@ -68,7 +69,9 @@ fun EditStampScreen(
 
     LaunchedEffect(stampId, noteId) {
         stampItem = timelineRepository.getStampItem(noteId, stampId)
-        suggestions = timelineRepository.getStampNoteSuggestions(noteId)
+        if (stampItem?.type != StampType.MEMO) {
+            suggestions = timelineRepository.getStampNoteSuggestions(noteId)
+        }
     }
 
     if (stampItem == null) {
@@ -175,35 +178,49 @@ fun EditStampScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded },
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        if (stampItem!!.type == StampType.MEMO) {
             TextField(
                 value = note,
-                onValueChange = { note = it },
-                label = { Text("一言メモ") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable)
+                onValueChange = { if (it.length <= 2048) note = it },
+                label = { Text("詳細") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                singleLine = false
             )
-            ExposedDropdownMenu(
+        } else {
+            ExposedDropdownMenuBox(
                 expanded = expanded,
-                onDismissRequest = { expanded = false },
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                suggestions.forEach { selectionOption ->
-                    DropdownMenuItem(
-                        text = { Text(selectionOption) },
-                        onClick = {
-                            note = selectionOption
-                            expanded = false
-                        }
-                    )
+                TextField(
+                    value = note,
+                    onValueChange = { if (it.length <= 2048) note = it },
+                    label = { Text("詳細") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    suggestions.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                note = selectionOption
+                                expanded = false
+                            }
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        if (stampItem!!.type != StampType.MEMO) {
+            Spacer(modifier = Modifier.weight(1f))
+        }
 
         Button(onClick = {
             coroutineScope.launch {

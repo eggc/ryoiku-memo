@@ -8,7 +8,6 @@ import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.UUID
 
@@ -21,11 +20,9 @@ interface TimelineRepository {
     suspend fun deleteNote(noteId: String)
 
     suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem>
-    suspend fun getDiaryItem(noteId: String, date: String): DiaryItem?
     suspend fun getStampItem(noteId: String, timestamp: Long): StampItem?
     suspend fun getStampNoteSuggestions(noteId: String): List<String>
 
-    suspend fun saveDiary(noteId: String, date: String, text: String)
     suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
     suspend fun deleteTimelineItem(noteId: String, item: TimelineItem)
 }
@@ -83,11 +80,6 @@ class FirestoreTimelineRepository : TimelineRepository {
 
         return snapshot.documents.mapNotNull { doc ->
             when (doc.getString("itemType")) {
-                "diary" -> DiaryItem(
-                    timestamp = doc.getLong("timestamp")!!,
-                    text = doc.getString("text")!!,
-                    date = doc.getString("date")!!
-                )
                 "stamp" -> StampItem(
                     timestamp = doc.getLong("timestamp")!!,
                     type = StampType.valueOf(doc.getString("type")!!),
@@ -96,16 +88,6 @@ class FirestoreTimelineRepository : TimelineRepository {
                 else -> null
             }
         }
-    }
-
-    override suspend fun getDiaryItem(noteId: String, date: String): DiaryItem? {
-        val doc = timelineCollection(noteId).document(date).get().await()
-        if (!doc.exists()) return null
-        return DiaryItem(
-            timestamp = doc.getLong("timestamp")!!,
-            text = doc.getString("text")!!,
-            date = doc.getString("date")!!
-        )
     }
 
     override suspend fun getStampItem(noteId: String, timestamp: Long): StampItem? {
@@ -131,19 +113,6 @@ class FirestoreTimelineRepository : TimelineRepository {
             .take(10)
     }
 
-
-    override suspend fun saveDiary(noteId: String, date: String, text: String) {
-        val diaryTimestamp = LocalDate.parse(date, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val diaryMap = hashMapOf(
-            "itemType" to "diary",
-            "timestamp" to diaryTimestamp,
-            "text" to text,
-            "date" to date
-        )
-        timelineCollection(noteId).document(date).set(diaryMap).await()
-    }
-
     override suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long) {
         val stampMap = hashMapOf(
             "itemType" to "stamp",
@@ -155,18 +124,15 @@ class FirestoreTimelineRepository : TimelineRepository {
     }
 
     override suspend fun deleteTimelineItem(noteId: String, item: TimelineItem) {
-        val docId = when (item) {
-            is DiaryItem -> item.date
-            is StampItem -> item.timestamp.toString()
+        if (item is StampItem) {
+            timelineCollection(noteId).document(item.timestamp.toString()).delete().await()
         }
-        timelineCollection(noteId).document(docId).delete().await()
     }
 }
 
 class SharedPreferencesTimelineRepository(private val context: Context) : TimelineRepository {
 
     private val notesPrefs = context.getSharedPreferences("notes_prefs", Context.MODE_PRIVATE)
-    private val dateParser = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
     override suspend fun getNotes(): List<Note> {
         return notesPrefs.all.map { (id, name) -> Note(id, name as String) }
@@ -183,26 +149,14 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
     }
 
     override suspend fun deleteNote(noteId: String) {
-        diaryPrefs(noteId).edit().clear().apply()
         stampPrefs(noteId).edit().clear().apply()
         notesPrefs.edit().remove(noteId).apply()
     }
 
-    private fun diaryPrefs(noteId: String) = context.getSharedPreferences("diary_prefs_$noteId", Context.MODE_PRIVATE)
     private fun stampPrefs(noteId: String) = context.getSharedPreferences("stamp_prefs_$noteId", Context.MODE_PRIVATE)
 
     override suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem> {
         // SharedPreferences implementation doesn't support month-based filtering easily, returning all for simplicity
-        val diaries = diaryPrefs(noteId).all.mapNotNull { (key, value) ->
-            try {
-                val diaryTimestamp =
-                    LocalDate.parse(key, dateParser).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                DiaryItem(timestamp = diaryTimestamp, text = value as String, date = key)
-            } catch (e: Exception) {
-                null
-            }
-        }
-
         val stamps = stampPrefs(noteId).all.mapNotNull { (key, value) ->
             try {
                 val valueString = value as String
@@ -215,13 +169,7 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
             }
         }
 
-        return (diaries + stamps).sortedByDescending { it.timestamp }
-    }
-
-    override suspend fun getDiaryItem(noteId: String, date: String): DiaryItem? {
-        val text = diaryPrefs(noteId).getString(date, null) ?: return null
-        val timestamp = LocalDate.parse(date, dateParser).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        return DiaryItem(timestamp, text, date)
+        return stamps.sortedByDescending { it.timestamp }
     }
 
     override suspend fun getStampItem(noteId: String, timestamp: Long): StampItem? {
@@ -241,14 +189,6 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
             .take(10)
     }
 
-
-    override suspend fun saveDiary(noteId: String, date: String, text: String) {
-        with(diaryPrefs(noteId).edit()) {
-            putString(date, text)
-            apply()
-        }
-    }
-
     override suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long) {
         with(stampPrefs(noteId).edit()) {
             putString(timestamp.toString(), "${stampType.name}|${note}")
@@ -257,17 +197,11 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
     }
 
     override suspend fun deleteTimelineItem(noteId: String, item: TimelineItem) {
-        val keyToDelete = when (item) {
-            is DiaryItem -> item.date
-            is StampItem -> item.timestamp.toString()
-        }
-        val prefs = when (item) {
-            is DiaryItem -> diaryPrefs(noteId)
-            is StampItem -> stampPrefs(noteId)
-        }
-        with(prefs.edit()) {
-            remove(keyToDelete)
-            apply()
+        if (item is StampItem) {
+            with(stampPrefs(noteId).edit()) {
+                remove(item.timestamp.toString())
+                apply()
+            }
         }
     }
 }

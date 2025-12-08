@@ -6,18 +6,13 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.SentimentSatisfied
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
+import androidx.compose.material.icons.filled.StickyNote2
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed interface TimelineItem {
     val timestamp: Long
 }
-
-data class DiaryItem(
-    override val timestamp: Long,
-    val text: String,
-    val date: String // "yyyy-MM-dd"
-) : TimelineItem
 
 data class StampItem(
     override val timestamp: Long,
@@ -27,7 +22,6 @@ data class StampItem(
 
 sealed interface TimelineFilter {
     data object All : TimelineFilter
-    data object DiaryOnly : TimelineFilter
     data class StampOnly(val type: StampType) : TimelineFilter
 }
 
@@ -38,4 +32,5 @@ enum class StampType(val label: String, val icon: ImageVector) {
     FUN("たのしい", Icons.Default.SentimentSatisfied),
     TANTRUM("かんしゃく", Icons.Default.LocalFireDepartment),
     MEDICATION("おくすり", Icons.Default.Medication),
+    MEMO("メモ", Icons.Default.StickyNote2),
 }

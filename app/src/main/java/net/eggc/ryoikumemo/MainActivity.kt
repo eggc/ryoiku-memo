@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,8 +54,6 @@ import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.SharedPreferencesTimelineRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,7 +72,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun RyoikumemoApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TIMELINE) }
-    var editingDiaryDate by rememberSaveable { mutableStateOf<String?>(null) }
     var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -118,9 +114,6 @@ fun RyoikumemoApp() {
                     onClick = {
                         currentDestination = dest
                         editingStampId = null
-                        if (dest == AppDestinations.DIARY) {
-                            editingDiaryDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        }
                     }
                 )
             }
@@ -175,24 +168,9 @@ fun RyoikumemoApp() {
                         modifier = Modifier.padding(innerPadding),
                         timelineRepository = timelineRepository,
                         noteId = currentNote!!.id,
-                        onEditDiaryClick = { date ->
-                            editingDiaryDate = date
-                            currentDestination = AppDestinations.DIARY
-                        },
                         onEditStampClick = { stampId ->
                             editingStampId = stampId
                             currentDestination = AppDestinations.EDIT_STAMP
-                        }
-                    )
-
-                    AppDestinations.DIARY -> DiaryScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        date = editingDiaryDate!!,
-                        timelineRepository = timelineRepository,
-                        noteId = currentNote!!.id,
-                        onDiarySaved = {
-                            currentDestination = AppDestinations.TIMELINE
-                            editingDiaryDate = null
                         }
                     )
 
@@ -255,7 +233,6 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
-    DIARY("日記", Icons.Filled.EditCalendar),
     STAMP("スタンプ", Icons.Default.AccessTime),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),

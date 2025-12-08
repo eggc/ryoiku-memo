@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EditCalendar
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import net.eggc.ryoikumemo.data.DiaryItem
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineItem
 import net.eggc.ryoikumemo.data.TimelineRepository
@@ -62,7 +60,6 @@ fun TimelineScreen(
     modifier: Modifier = Modifier,
     timelineRepository: TimelineRepository,
     noteId: String,
-    onEditDiaryClick: (String) -> Unit,
     onEditStampClick: (Long) -> Unit
 ) {
     val context = LocalContext.current
@@ -158,20 +155,11 @@ fun TimelineScreen(
                             }
                         }
                         items(items, key = {
-                            when (it) {
-                                is DiaryItem -> "diary_${it.date}"
-                                is StampItem -> "stamp_${it.timestamp}"
-                            }
+                            "stamp_${it.timestamp}"
                         }) { item ->
-                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                when (item) {
-                                    is DiaryItem -> DiaryCard(
-                                        text = item.text,
-                                        onEditClick = { onEditDiaryClick(item.date) },
-                                        onDeleteClick = { showDeleteDialogFor = item }
-                                    )
-
-                                    is StampItem -> StampHistoryCard(
+                            if (item is StampItem) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                    StampHistoryCard(
                                         timestamp = item.timestamp,
                                         stampType = item.type,
                                         note = item.note,
@@ -208,45 +196,6 @@ fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit) {
         )
         IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
             Icon(Icons.Default.ArrowForward, contentDescription = "次の月")
-        }
-    }
-}
-
-@Composable
-fun DiaryCard(text: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.EditCalendar,
-                    contentDescription = "日記",
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "日記",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = text, style = MaterialTheme.typography.bodyLarge)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onEditClick) {
-                    Icon(Icons.Default.Edit, contentDescription = "編集")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "削除")
-                }
-            }
         }
     }
 }
