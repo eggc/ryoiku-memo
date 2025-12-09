@@ -90,14 +90,21 @@ fun RyoikumemoApp() {
 
     LaunchedEffect(noteRepository) {
         coroutineScope.launch {
-            val notes = noteRepository.getNotes()
-            if (notes.isNotEmpty()) {
-                val lastSelectedNoteId = appPreferences.getLastSelectedNoteId()
-                currentNote = notes.find { it.id == lastSelectedNoteId } ?: notes.first()
+            // Try to load the last selected note from preferences
+            val lastNote = appPreferences.getLastSelectedNote()
+            if (lastNote != null) {
+                currentNote = lastNote
             } else {
-                currentNote = noteRepository.createNote("ノート1")
+                // If no note is in preferences, fall back to the first note from the repository
+                val notes = noteRepository.getNotes()
+                if (notes.isNotEmpty()) {
+                    currentNote = notes.first()
+                } else {
+                    // If there are no notes at all, create a new one
+                    currentNote = noteRepository.createNote("ノート1")
+                }
+                currentNote?.let { appPreferences.saveLastSelectedNote(it) }
             }
-            currentNote?.let { appPreferences.saveLastSelectedNoteId(it.id) }
         }
     }
 
@@ -206,12 +213,12 @@ fun RyoikumemoApp() {
                         currentNoteId = currentNote!!.id,
                         onNoteSelected = {
                             currentNote = it
-                            appPreferences.saveLastSelectedNoteId(it.id)
+                            appPreferences.saveLastSelectedNote(it)
                             currentDestination = AppDestinations.TIMELINE
                         },
                         onNoteUpdated = { updatedNote ->
                             currentNote = updatedNote
-                            appPreferences.saveLastSelectedNoteId(updatedNote.id)
+                            appPreferences.saveLastSelectedNote(updatedNote)
                         }
                     )
 
@@ -220,6 +227,7 @@ fun RyoikumemoApp() {
                         currentUser = currentUser,
                         onLogoutClick = {
                             Firebase.auth.signOut()
+                            appPreferences.clearLastSelectedNote()
                             val intent = Intent(context, AuthActivity::class.java)
                             (context as? Activity)?.startActivity(intent)
                             (context as? Activity)?.finish()
