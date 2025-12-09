@@ -59,14 +59,19 @@ class FirestoreNoteRepository : NoteRepository {
 
         val batch = db.batch()
 
-        // Handle sharedId changes and name changes for shared notes
+        // Handle sharedId changes
         if (note.sharedId != oldSharedId) {
-            // Delete old shared note entry if it existed
-            oldSharedId?.let { batch.delete(sharedNotesCollection.document(it)) }
+            // Delete old shared note entry only if it actually exists
+            if (oldSharedId != null) {
+                val oldSharedNoteRef = sharedNotesCollection.document(oldSharedId)
+                if (oldSharedNoteRef.get().await().exists()) {
+                    batch.delete(oldSharedNoteRef)
+                }
+            }
         }
 
+        // Create or Update new shared note entry
         if (note.sharedId != null) {
-            // Create or update the shared note entry. `set` is used to handle both creation and update.
             val sharedNoteData = mapOf(
                 "ownerId" to userId,
                 "noteId" to note.id,
