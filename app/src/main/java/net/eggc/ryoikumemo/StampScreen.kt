@@ -1,34 +1,37 @@
 package net.eggc.ryoikumemo
 
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineRepository
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StampScreen(
     modifier: Modifier = Modifier,
@@ -38,58 +41,78 @@ fun StampScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val stampTypes = StampType.entries.filter { it != StampType.MEMO }
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(stampTypes) { stampType ->
-            StampCard(
-                label = stampType.label,
-                icon = stampType.icon,
-                onClick = {
-                    coroutineScope.launch {
-                        timelineRepository.saveStamp(noteId, stampType, "")
-                        Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
-                        onStampSaved()
-                    }
-                }
-            )
-        }
-        item {
-            StampCard(
-                label = StampType.MEMO.label,
-                icon = StampType.MEMO.icon,
-                onClick = {
-                    coroutineScope.launch {
-                        timelineRepository.saveStamp(noteId, StampType.MEMO, "")
-                        Toast.makeText(context, "${StampType.MEMO.label}を記録しました", Toast.LENGTH_SHORT).show()
-                        onStampSaved()
-                    }
-                }
-            )
-        }
-    }
-}
+    val appPreferences = remember { AppPreferences(context) }
 
-@Composable
-fun StampCard(label: String, icon: ImageVector, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clickable(onClick = onClick)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+    var isCustomizing by remember { mutableStateOf(false) }
+    var hiddenStampTypes by remember { mutableStateOf(appPreferences.getHiddenStampTypes()) }
+
+    val visibleStampTypes = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.End
         ) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(48.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = label, style = MaterialTheme.typography.titleMedium)
+            if (isCustomizing) {
+                TextButton(onClick = {
+                    appPreferences.saveHiddenStampTypes(hiddenStampTypes)
+                    isCustomizing = false
+                }) {
+                    Text("完了")
+                }
+            } else {
+                TextButton(onClick = { isCustomizing = true }) {
+                    Text("カスタマイズ")
+                }
+            }
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 128.dp),
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            val itemsToShow = if (isCustomizing) StampType.entries else visibleStampTypes
+            items(itemsToShow) { stampType ->
+                Card(
+                    modifier = Modifier.padding(8.dp),
+                    onClick = {
+                        if (!isCustomizing) {
+                            coroutineScope.launch {
+                                timelineRepository.saveStamp(noteId, stampType, "")
+                                Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                                onStampSaved()
+                            }
+                        }
+                    }
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp)
+                    ) {
+                        Icon(stampType.icon, contentDescription = stampType.label)
+                        Text(stampType.label)
+                        if (isCustomizing) {
+                            Switch(
+                                checked = !hiddenStampTypes.contains(stampType.name),
+                                onCheckedChange = { isChecked ->
+                                    hiddenStampTypes = if (isChecked) {
+                                        hiddenStampTypes - stampType.name
+                                    } else {
+                                        hiddenStampTypes + stampType.name
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
