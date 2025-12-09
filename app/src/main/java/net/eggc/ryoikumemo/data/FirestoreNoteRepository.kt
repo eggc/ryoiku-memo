@@ -194,6 +194,7 @@ class FirestoreNoteRepository : NoteRepository {
 
     override suspend fun getSubscribedNoteIds(): List<String> {
         val snapshot = userDocRef.get().await()
+        @Suppress("UNCHECKED_CAST")
         return snapshot.get("subscribedNoteIds") as? List<String> ?: emptyList()
     }
 

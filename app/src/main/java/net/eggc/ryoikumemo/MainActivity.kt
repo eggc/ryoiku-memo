@@ -179,7 +179,7 @@ fun RyoikumemoApp() {
                     AppDestinations.GRAPH -> GraphScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
-                        noteId = currentNote!!.id
+                        note = currentNote!!
                     )
 
                     AppDestinations.STAMP -> StampScreen(

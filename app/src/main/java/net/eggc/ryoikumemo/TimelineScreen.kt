@@ -17,8 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -189,14 +189,14 @@ fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "前の月")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "前の月")
         }
         Text(
             text = currentMonth.format(formatter),
             style = MaterialTheme.typography.titleMedium
         )
         IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
-            Icon(Icons.Default.ArrowForward, contentDescription = "次の月")
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "次の月")
         }
     }
 }
