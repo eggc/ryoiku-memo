@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -38,11 +39,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.TimelineRepository
+import java.util.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,6 +175,7 @@ private fun EditNoteDialog(
     var noteName by remember { mutableStateOf(initialName) }
     var sharedId by remember { mutableStateOf(initialSharedId) }
     var isShared by remember { mutableStateOf(initialSharedId != null) }
+    val clipboardManager = LocalClipboardManager.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -194,7 +199,11 @@ private fun EditNoteDialog(
                             isShared = it
                             if (it) {
                                 if (sharedId == null) {
-                                    sharedId = NanoIdUtils.randomNanoId()
+                                    sharedId = NanoIdUtils.randomNanoId(
+                                        Random(),
+                                        "0123456789abcdefghijklmnopqrstuvwxyz".toCharArray(),
+                                        10
+                                    )
                                 }
                             } else {
                                 sharedId = null
@@ -202,12 +211,17 @@ private fun EditNoteDialog(
                         }
                     )
                 }
-                if (isShared) {
-                    Text(
-                        text = "共有ノートID: $sharedId",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+                if (isShared && sharedId != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "共有ノートID: $sharedId",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        IconButton(onClick = { clipboardManager.setText(AnnotatedString(sharedId!!)) }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "コピー")
+                        }
+                    }
                 }
             }
         },
