@@ -51,7 +51,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         return stamps.sortedByDescending { it.timestamp }
     }
 
-    override suspend fun getStampItem(noteId: String, timestamp: Long): StampItem? {
+    override suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem? {
         val valueString = stampPrefs(noteId).getString(timestamp.toString(), null) ?: return null
         val parts = valueString.split('|', limit = 2)
         val type = StampType.valueOf(parts[0])
@@ -59,7 +59,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         return StampItem(timestamp = timestamp, type = type, note = note, operatorName = null)
     }
 
-    override suspend fun getStampNoteSuggestions(noteId: String): List<String> {
+    override suspend fun getStampNoteSuggestions(ownerId: String, noteId: String): List<String> {
         return stampPrefs(noteId).all.values
             .mapNotNull { it as? String }
             .map { it.split('|', limit = 2).getOrElse(1) { "" } }
@@ -68,7 +68,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
             .take(10)
     }
 
-    override suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long) {
+    override suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long) {
         with(stampPrefs(noteId).edit()) {
             // operatorName is not stored in local storage
             putString(timestamp.toString(), "${stampType.name}|${note}")
@@ -76,7 +76,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         }
     }
 
-    override suspend fun deleteTimelineItem(noteId: String, item: TimelineItem) {
+    override suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem) {
         if (item is StampItem) {
             with(stampPrefs(noteId).edit()) {
                 remove(item.timestamp.toString())

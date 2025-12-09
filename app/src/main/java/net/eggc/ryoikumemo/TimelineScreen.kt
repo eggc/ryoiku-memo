@@ -99,7 +99,7 @@ fun TimelineScreen(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                noteRepository.deleteTimelineItem(note.id, itemToDelete)
+                                noteRepository.deleteTimelineItem(note.ownerId!!, note.id, itemToDelete)
                                 refreshTimeline()
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()

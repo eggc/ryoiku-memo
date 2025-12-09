@@ -140,9 +140,8 @@ class FirestoreNoteRepository : NoteRepository {
         }
     }
 
-    override suspend fun getStampItem(noteId: String, timestamp: Long): StampItem? {
-        // This needs to be updated to handle shared notes if editing is required.
-        val doc = timelineCollection(userId, noteId).document(timestamp.toString()).get().await()
+    override suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem? {
+        val doc = timelineCollection(ownerId, noteId).document(timestamp.toString()).get().await()
         if (!doc.exists()) return null
         return StampItem(
             timestamp = doc.getLong("timestamp")!!,
@@ -152,9 +151,8 @@ class FirestoreNoteRepository : NoteRepository {
         )
     }
 
-    override suspend fun getStampNoteSuggestions(noteId: String): List<String> {
-        // This needs to be updated to handle shared notes if suggestions are required.
-        return timelineCollection(userId, noteId)
+    override suspend fun getStampNoteSuggestions(ownerId: String, noteId: String): List<String> {
+        return timelineCollection(ownerId, noteId)
             .whereEqualTo("itemType", "stamp")
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(100) // Look at last 100 stamps for suggestions
@@ -166,8 +164,7 @@ class FirestoreNoteRepository : NoteRepository {
             .take(10)
     }
 
-    override suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long) {
-        // This needs to be updated to handle shared notes if saving is required.
+    override suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long) {
         val stampMap = hashMapOf(
             "itemType" to "stamp",
             "timestamp" to timestamp,
@@ -175,13 +172,12 @@ class FirestoreNoteRepository : NoteRepository {
             "note" to note,
             "operatorName" to Firebase.auth.currentUser?.displayName
         )
-        timelineCollection(userId, noteId).document(timestamp.toString()).set(stampMap).await()
+        timelineCollection(ownerId, noteId).document(timestamp.toString()).set(stampMap).await()
     }
 
-    override suspend fun deleteTimelineItem(noteId: String, item: TimelineItem) {
-        // This needs to be updated to handle shared notes if deleting is required.
+    override suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem) {
         if (item is StampItem) {
-            timelineCollection(userId, noteId).document(item.timestamp.toString()).delete().await()
+            timelineCollection(ownerId, noteId).document(item.timestamp.toString()).delete().await()
         }
     }
 

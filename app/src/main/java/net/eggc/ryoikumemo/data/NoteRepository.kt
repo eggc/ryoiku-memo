@@ -18,11 +18,11 @@ interface NoteRepository {
     suspend fun deleteNote(noteId: String)
 
     suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, sharedId: String?, dateInMonth: LocalDate): List<TimelineItem>
-    suspend fun getStampItem(noteId: String, timestamp: Long): StampItem?
-    suspend fun getStampNoteSuggestions(noteId: String): List<String>
+    suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem?
+    suspend fun getStampNoteSuggestions(ownerId: String, noteId: String): List<String>
 
-    suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
-    suspend fun deleteTimelineItem(noteId: String, item: TimelineItem)
+    suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem)
 
     suspend fun subscribeToSharedNote(sharedId: String)
     suspend fun unsubscribeFromSharedNote(sharedId: String)

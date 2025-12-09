@@ -185,7 +185,7 @@ fun RyoikumemoApp() {
                     AppDestinations.STAMP -> StampScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
-                        noteId = currentNote!!.id,
+                        note = currentNote!!,
                         onStampSaved = { currentDestination = AppDestinations.TIMELINE }
                     )
 
@@ -193,7 +193,7 @@ fun RyoikumemoApp() {
                         modifier = Modifier.padding(innerPadding),
                         stampId = editingStampId!!,
                         noteRepository = noteRepository,
-                        noteId = currentNote!!.id,
+                        note = currentNote!!,
                         onStampUpdated = {
                             currentDestination = AppDestinations.TIMELINE
                             editingStampId = null

@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
@@ -55,7 +56,7 @@ fun EditStampScreen(
     modifier: Modifier = Modifier,
     stampId: Long,
     noteRepository: NoteRepository,
-    noteId: String,
+    note: Note,
     onStampUpdated: () -> Unit
 ) {
     val context = LocalContext.current
@@ -67,10 +68,10 @@ fun EditStampScreen(
 
     var currentTimestamp by remember { mutableStateOf(stampId) }
 
-    LaunchedEffect(stampId, noteId) {
-        stampItem = noteRepository.getStampItem(noteId, stampId)
+    LaunchedEffect(stampId, note.id) {
+        stampItem = noteRepository.getStampItem(note.ownerId!!, note.id, stampId)
         if (stampItem?.type != StampType.MEMO) {
-            suggestions = noteRepository.getStampNoteSuggestions(noteId)
+            suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id)
         }
     }
 
@@ -86,7 +87,7 @@ fun EditStampScreen(
         is24Hour = true
     )
 
-    var note by remember(stampItem?.note) { mutableStateOf(stampItem?.note ?: "") }
+    var noteText by remember(stampItem?.note) { mutableStateOf(stampItem?.note ?: "") }
 
     var expanded by remember { mutableStateOf(false) }
 
@@ -180,8 +181,8 @@ fun EditStampScreen(
 
         if (stampItem!!.type == StampType.MEMO) {
             TextField(
-                value = note,
-                onValueChange = { if (it.length <= 2048) note = it },
+                value = noteText,
+                onValueChange = { if (it.length <= 2048) noteText = it },
                 label = { Text("詳細") },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -195,8 +196,8 @@ fun EditStampScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 TextField(
-                    value = note,
-                    onValueChange = { if (it.length <= 2048) note = it },
+                    value = noteText,
+                    onValueChange = { if (it.length <= 2048) noteText = it },
                     label = { Text("詳細") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable)
@@ -209,7 +210,7 @@ fun EditStampScreen(
                         DropdownMenuItem(
                             text = { Text(selectionOption) },
                             onClick = {
-                                note = selectionOption
+                                noteText = selectionOption
                                 expanded = false
                             }
                         )
@@ -224,8 +225,8 @@ fun EditStampScreen(
 
         Button(onClick = {
             coroutineScope.launch {
-                noteRepository.deleteTimelineItem(noteId, stampItem!!)
-                noteRepository.saveStamp(noteId, stampItem!!.type, note, currentTimestamp)
+                noteRepository.deleteTimelineItem(note.ownerId!!, note.id, stampItem!!)
+                noteRepository.saveStamp(note.ownerId, note.id, stampItem!!.type, noteText, currentTimestamp)
                 Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
                 onStampUpdated()
             }

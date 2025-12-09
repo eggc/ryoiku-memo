@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
+import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampType
 
@@ -36,7 +37,7 @@ import net.eggc.ryoikumemo.data.StampType
 fun StampScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
-    noteId: String,
+    note: Note,
     onStampSaved: () -> Unit
 ) {
     val context = LocalContext.current
@@ -84,7 +85,7 @@ fun StampScreen(
                     onClick = {
                         if (!isCustomizing) {
                             coroutineScope.launch {
-                                noteRepository.saveStamp(noteId, stampType, "")
+                                noteRepository.saveStamp(note.ownerId!!, note.id, stampType, "")
                                 Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
                                 onStampSaved()
                             }
