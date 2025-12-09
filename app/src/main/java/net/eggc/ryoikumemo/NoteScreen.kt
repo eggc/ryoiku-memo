@@ -47,6 +47,7 @@ import com.aventrix.jnanoid.jnanoid.NanoIdUtils
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.SharedNoteInfo
 import java.util.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +61,7 @@ fun NoteScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
-    var subscribedIds by remember { mutableStateOf<List<String>>(emptyList()) }
+    var subscribedNotes by remember { mutableStateOf<List<Pair<String, SharedNoteInfo?>>>(emptyList()) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showEditNoteDialog by remember { mutableStateOf<Note?>(null) }
     var showDeleteNoteDialog by remember { mutableStateOf<Note?>(null) }
@@ -69,7 +70,10 @@ fun NoteScreen(
     fun refreshNotes() {
         coroutineScope.launch {
             notes = noteRepository.getNotes()
-            subscribedIds = noteRepository.getSubscribedNoteIds()
+            val ids = noteRepository.getSubscribedNoteIds()
+            subscribedNotes = ids.map {
+                it to noteRepository.getNoteBySharedId(it)
+            }
         }
     }
 
@@ -186,19 +190,34 @@ fun NoteScreen(
                     }
                 }
             }
-            if (subscribedIds.isNotEmpty()) {
+            if (subscribedNotes.isNotEmpty()) {
                 item {
                     Text(
-                        text = "購読中のノートID",
+                        text = "購読中のノート",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
                     )
                 }
-                items(subscribedIds) { id ->
-                    Text(
-                        text = id,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                items(subscribedNotes) { (sharedId, info) ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            if (info != null) {
+                                Text(text = info.noteName, style = MaterialTheme.typography.titleLarge)
+                                Text(text = "持ち主: ${info.ownerId}", style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                Text(
+                                    text = "参照エラー",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(text = "ID: $sharedId", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
                 }
             }
         }

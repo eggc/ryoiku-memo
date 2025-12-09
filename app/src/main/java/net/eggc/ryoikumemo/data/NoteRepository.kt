@@ -4,6 +4,8 @@ import java.time.LocalDate
 
 data class Note(val id: String, val name: String, val sharedId: String? = null)
 
+data class SharedNoteInfo(val noteId: String, val ownerId: String, val noteName: String)
+
 interface NoteRepository {
     suspend fun getNotes(): List<Note>
     suspend fun createNote(name: String, sharedId: String? = null): Note
@@ -19,4 +21,6 @@ interface NoteRepository {
 
     suspend fun subscribeToSharedNote(sharedId: String)
     suspend fun getSubscribedNoteIds(): List<String>
+
+    suspend fun getNoteBySharedId(sharedId: String): SharedNoteInfo?
 }

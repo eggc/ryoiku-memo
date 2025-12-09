@@ -16,6 +16,7 @@ class FirestoreNoteRepository : NoteRepository {
     private val userId = Firebase.auth.currentUser?.uid ?: "anonymous"
     private val userDocRef = db.collection("users").document(userId)
     private val notesCollection = userDocRef.collection("notes")
+    private val sharedNotesCollection = db.collection("sharedNotes")
 
     override suspend fun getNotes(): List<Note> {
         val snapshot = notesCollection.get().await()
@@ -31,30 +32,76 @@ class FirestoreNoteRepository : NoteRepository {
     }
 
     override suspend fun createNote(name: String, sharedId: String?): Note {
+        val noteRef = notesCollection.document()
+        val batch = db.batch()
+
         val noteData = mutableMapOf<String, Any>("name" to name)
-        sharedId?.let { noteData["sharedId"] = it }
-        val noteRef = notesCollection.add(noteData).await()
+        if (sharedId != null) {
+            noteData["sharedId"] = sharedId
+            val sharedNoteData = mapOf(
+                "ownerId" to userId,
+                "noteId" to noteRef.id,
+                "noteName" to name
+            )
+            batch.set(sharedNotesCollection.document(sharedId), sharedNoteData)
+        }
+
+        batch.set(noteRef, noteData)
+        batch.commit().await()
+
         return Note(id = noteRef.id, name = name, sharedId = sharedId)
     }
 
     override suspend fun updateNote(note: Note) {
-        val noteData = mutableMapOf<String, Any?>("name" to note.name)
-        if (note.sharedId != null) {
-            noteData["sharedId"] = note.sharedId
-        } else {
-            noteData.keys.remove("sharedId")
+        val noteRef = notesCollection.document(note.id)
+        val oldNoteSnapshot = noteRef.get().await()
+        val oldSharedId = oldNoteSnapshot.getString("sharedId")
+
+        val batch = db.batch()
+
+        // Handle sharedId changes and name changes for shared notes
+        if (note.sharedId != oldSharedId) {
+            // Delete old shared note entry if it existed
+            oldSharedId?.let { batch.delete(sharedNotesCollection.document(it)) }
         }
-        notesCollection.document(note.id).update(noteData).await()
+
+        if (note.sharedId != null) {
+            // Create or update the shared note entry. `set` is used to handle both creation and update.
+            val sharedNoteData = mapOf(
+                "ownerId" to userId,
+                "noteId" to note.id,
+                "noteName" to note.name
+            )
+            batch.set(sharedNotesCollection.document(note.sharedId), sharedNoteData)
+        }
+
+        // Update the note document itself
+        val noteData = mapOf("name" to note.name, "sharedId" to note.sharedId)
+        batch.update(noteRef, noteData)
+
+        batch.commit().await()
     }
 
     override suspend fun deleteNote(noteId: String) {
-        val timelineItems = timelineCollection(noteId).get().await()
+        val noteRef = notesCollection.document(noteId)
+        val noteSnapshot = noteRef.get().await()
+        val sharedId = noteSnapshot.getString("sharedId")
+
         val batch = db.batch()
+
+        // Delete timeline items
+        val timelineItems = timelineCollection(noteId).get().await()
         for (document in timelineItems.documents) {
             batch.delete(document.reference)
         }
+
+        // Delete shared note entry
+        sharedId?.let { batch.delete(sharedNotesCollection.document(it)) }
+
+        // Delete the note itself
+        batch.delete(noteRef)
+
         batch.commit().await()
-        notesCollection.document(noteId).delete().await()
     }
 
     private fun timelineCollection(noteId: String) =
@@ -133,5 +180,16 @@ class FirestoreNoteRepository : NoteRepository {
     override suspend fun getSubscribedNoteIds(): List<String> {
         val snapshot = userDocRef.get().await()
         return snapshot.get("subscribedNoteIds") as? List<String> ?: emptyList()
+    }
+
+    override suspend fun getNoteBySharedId(sharedId: String): SharedNoteInfo? {
+        val doc = sharedNotesCollection.document(sharedId).get().await()
+        if (!doc.exists()) return null
+
+        val ownerId = doc.getString("ownerId") ?: return null
+        val noteId = doc.getString("noteId") ?: return null
+        val noteName = doc.getString("noteName") ?: return null
+
+        return SharedNoteInfo(noteId, ownerId, noteName)
     }
 }

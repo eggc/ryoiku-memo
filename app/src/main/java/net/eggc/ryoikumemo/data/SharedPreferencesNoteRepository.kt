@@ -87,4 +87,9 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         // Not implemented for local storage
         return emptyList()
     }
+
+    override suspend fun getNoteBySharedId(sharedId: String): SharedNoteInfo? {
+        // Not implemented for local storage
+        return null
+    }
 }
