@@ -11,11 +11,11 @@ import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import java.util.UUID
 
-data class Note(val id: String, val name: String)
+data class Note(val id: String, val name: String, val sharedId: String? = null)
 
 interface TimelineRepository {
     suspend fun getNotes(): List<Note>
-    suspend fun createNote(name: String): Note
+    suspend fun createNote(name: String, sharedId: String? = null): Note
     suspend fun updateNote(note: Note)
     suspend fun deleteNote(noteId: String)
 
@@ -36,19 +36,30 @@ class FirestoreTimelineRepository : TimelineRepository {
         val snapshot = notesCollection.get().await()
         return snapshot.documents.mapNotNull { doc ->
             doc.getString("name")?.let { name ->
-                Note(id = doc.id, name = name)
+                Note(
+                    id = doc.id,
+                    name = name,
+                    sharedId = doc.getString("sharedId")
+                )
             }
         }
     }
 
-    override suspend fun createNote(name: String): Note {
-        val noteData = hashMapOf("name" to name)
+    override suspend fun createNote(name: String, sharedId: String?): Note {
+        val noteData = mutableMapOf<String, Any>("name" to name)
+        sharedId?.let { noteData["sharedId"] = it }
         val noteRef = notesCollection.add(noteData).await()
-        return Note(id = noteRef.id, name = name)
+        return Note(id = noteRef.id, name = name, sharedId = sharedId)
     }
 
     override suspend fun updateNote(note: Note) {
-        notesCollection.document(note.id).update("name", note.name).await()
+        val noteData = mutableMapOf<String, Any?>("name" to note.name)
+        if (note.sharedId != null) {
+            noteData["sharedId"] = note.sharedId
+        } else {
+            noteData["sharedId"] = null
+        }
+        notesCollection.document(note.id).update(noteData).await()
     }
 
     override suspend fun deleteNote(noteId: String) {
@@ -135,13 +146,13 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
     private val notesPrefs = context.getSharedPreferences("notes_prefs", Context.MODE_PRIVATE)
 
     override suspend fun getNotes(): List<Note> {
-        return notesPrefs.all.map { (id, name) -> Note(id, name as String) }
+        return notesPrefs.all.map { (id, name) -> Note(id, name as String, null) }
     }
 
-    override suspend fun createNote(name: String): Note {
+    override suspend fun createNote(name: String, sharedId: String?): Note {
         val id = UUID.randomUUID().toString()
         notesPrefs.edit().putString(id, name).apply()
-        return Note(id, name)
+        return Note(id, name, sharedId)
     }
 
     override suspend fun updateNote(note: Note) {

@@ -69,6 +69,7 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.0.0")
 
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation(libs.jnanoid)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

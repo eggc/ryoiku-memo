@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.aventrix.jnanoid.jnanoid.NanoIdUtils
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.TimelineRepository
@@ -70,9 +72,9 @@ fun NoteScreen(
     if (showAddNoteDialog) {
         EditNoteDialog(
             onDismiss = { showAddNoteDialog = false },
-            onConfirm = { noteName ->
+            onConfirm = { noteName, sharedId ->
                 coroutineScope.launch {
-                    timelineRepository.createNote(noteName)
+                    timelineRepository.createNote(noteName, sharedId)
                     refreshNotes()
                 }
                 showAddNoteDialog = false
@@ -83,9 +85,10 @@ fun NoteScreen(
     showEditNoteDialog?.let { note ->
         EditNoteDialog(
             initialName = note.name,
+            initialSharedId = note.sharedId,
             onDismiss = { showEditNoteDialog = null },
-            onConfirm = { newName ->
-                val updatedNote = note.copy(name = newName)
+            onConfirm = { newName, newSharedId ->
+                val updatedNote = note.copy(name = newName, sharedId = newSharedId)
                 coroutineScope.launch {
                     timelineRepository.updateNote(updatedNote)
                     refreshNotes()
@@ -161,25 +164,58 @@ fun NoteScreen(
 @Composable
 private fun EditNoteDialog(
     initialName: String = "",
+    initialSharedId: String? = null,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (String, String?) -> Unit
 ) {
     var noteName by remember { mutableStateOf(initialName) }
+    var sharedId by remember { mutableStateOf(initialSharedId) }
+    var isShared by remember { mutableStateOf(initialSharedId != null) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initialName.isEmpty()) "新しいノート" else "ノート名を編集") },
+        title = { Text(if (initialName.isEmpty()) "新しいノート" else "ノートを編集") },
         text = {
-            TextField(
-                value = noteName,
-                onValueChange = { noteName = it },
-                label = { Text("ノート名") }
-            )
+            Column {
+                TextField(
+                    value = noteName,
+                    onValueChange = { noteName = it },
+                    label = { Text("ノート名") }
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 16.dp)
+                ) {
+                    Text("共有ノート")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = isShared,
+                        onCheckedChange = {
+                            isShared = it
+                            if (it) {
+                                if (sharedId == null) {
+                                    sharedId = NanoIdUtils.randomNanoId()
+                                }
+                            } else {
+                                sharedId = null
+                            }
+                        }
+                    )
+                }
+                if (isShared) {
+                    Text(
+                        text = "共有ノートID: $sharedId",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (noteName.isNotBlank()) {
-                        onConfirm(noteName)
+                        onConfirm(noteName, sharedId)
                     }
                 }
             ) {
