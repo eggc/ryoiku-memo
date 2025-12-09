@@ -28,14 +28,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
+import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampType
-import net.eggc.ryoikumemo.data.TimelineRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StampScreen(
     modifier: Modifier = Modifier,
-    timelineRepository: TimelineRepository,
+    noteRepository: NoteRepository,
     noteId: String,
     onStampSaved: () -> Unit
 ) {
@@ -84,7 +84,7 @@ fun StampScreen(
                     onClick = {
                         if (!isCustomizing) {
                             coroutineScope.launch {
-                                timelineRepository.saveStamp(noteId, stampType, "")
+                                noteRepository.saveStamp(noteId, stampType, "")
                                 Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
                                 onStampSaved()
                             }

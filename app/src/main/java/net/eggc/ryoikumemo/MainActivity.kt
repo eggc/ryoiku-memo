@@ -51,9 +51,10 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
-import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
+import net.eggc.ryoikumemo.data.FirestoreNoteRepository
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.SharedPreferencesTimelineRepository
+import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 
 class MainActivity : ComponentActivity() {
@@ -77,24 +78,24 @@ fun RyoikumemoApp() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val currentUser = Firebase.auth.currentUser
-    val timelineRepository = remember {
+    val noteRepository = remember<NoteRepository> {
         if (currentUser != null) {
-            FirestoreTimelineRepository()
+            FirestoreNoteRepository()
         } else {
-            SharedPreferencesTimelineRepository(context)
+            SharedPreferencesNoteRepository(context)
         }
     }
     var currentNote by remember { mutableStateOf<Note?>(null) }
     val appPreferences = remember { AppPreferences(context) }
 
-    LaunchedEffect(timelineRepository) {
+    LaunchedEffect(noteRepository) {
         coroutineScope.launch {
-            val notes = timelineRepository.getNotes()
+            val notes = noteRepository.getNotes()
             if (notes.isNotEmpty()) {
                 val lastSelectedNoteId = appPreferences.getLastSelectedNoteId()
                 currentNote = notes.find { it.id == lastSelectedNoteId } ?: notes.first()
             } else {
-                currentNote = timelineRepository.createNote("ノート1")
+                currentNote = noteRepository.createNote("ノート1")
             }
             currentNote?.let { appPreferences.saveLastSelectedNoteId(it.id) }
         }
@@ -167,7 +168,7 @@ fun RyoikumemoApp() {
                 when (currentDestination) {
                     AppDestinations.TIMELINE -> TimelineScreen(
                         modifier = Modifier.padding(innerPadding),
-                        timelineRepository = timelineRepository,
+                        noteRepository = noteRepository,
                         noteId = currentNote!!.id,
                         onEditStampClick = { stampId ->
                             editingStampId = stampId
@@ -177,13 +178,13 @@ fun RyoikumemoApp() {
 
                     AppDestinations.GRAPH -> GraphScreen(
                         modifier = Modifier.padding(innerPadding),
-                        timelineRepository = timelineRepository,
+                        noteRepository = noteRepository,
                         noteId = currentNote!!.id
                     )
 
                     AppDestinations.STAMP -> StampScreen(
                         modifier = Modifier.padding(innerPadding),
-                        timelineRepository = timelineRepository,
+                        noteRepository = noteRepository,
                         noteId = currentNote!!.id,
                         onStampSaved = { currentDestination = AppDestinations.TIMELINE }
                     )
@@ -191,7 +192,7 @@ fun RyoikumemoApp() {
                     AppDestinations.EDIT_STAMP -> EditStampScreen(
                         modifier = Modifier.padding(innerPadding),
                         stampId = editingStampId!!,
-                        timelineRepository = timelineRepository,
+                        noteRepository = noteRepository,
                         noteId = currentNote!!.id,
                         onStampUpdated = {
                             currentDestination = AppDestinations.TIMELINE
@@ -201,7 +202,7 @@ fun RyoikumemoApp() {
 
                     AppDestinations.NOTE -> NoteScreen(
                         modifier = Modifier.padding(innerPadding),
-                        timelineRepository = timelineRepository,
+                        noteRepository = noteRepository,
                         currentNoteId = currentNote!!.id,
                         onNoteSelected = {
                             currentNote = it

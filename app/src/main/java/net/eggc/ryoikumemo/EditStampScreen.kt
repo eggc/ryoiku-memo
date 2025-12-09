@@ -41,9 +41,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
-import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -54,7 +54,7 @@ import java.util.Calendar
 fun EditStampScreen(
     modifier: Modifier = Modifier,
     stampId: Long,
-    timelineRepository: TimelineRepository,
+    noteRepository: NoteRepository,
     noteId: String,
     onStampUpdated: () -> Unit
 ) {
@@ -68,9 +68,9 @@ fun EditStampScreen(
     var currentTimestamp by remember { mutableStateOf(stampId) }
 
     LaunchedEffect(stampId, noteId) {
-        stampItem = timelineRepository.getStampItem(noteId, stampId)
+        stampItem = noteRepository.getStampItem(noteId, stampId)
         if (stampItem?.type != StampType.MEMO) {
-            suggestions = timelineRepository.getStampNoteSuggestions(noteId)
+            suggestions = noteRepository.getStampNoteSuggestions(noteId)
         }
     }
 
@@ -224,8 +224,8 @@ fun EditStampScreen(
 
         Button(onClick = {
             coroutineScope.launch {
-                timelineRepository.deleteTimelineItem(noteId, stampItem!!)
-                timelineRepository.saveStamp(noteId, stampItem!!.type, note, currentTimestamp)
+                noteRepository.deleteTimelineItem(noteId, stampItem!!)
+                noteRepository.saveStamp(noteId, stampItem!!.type, note, currentTimestamp)
                 Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
                 onStampUpdated()
             }

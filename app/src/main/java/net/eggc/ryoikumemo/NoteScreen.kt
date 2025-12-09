@@ -46,14 +46,14 @@ import androidx.compose.ui.unit.dp
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.TimelineRepository
+import net.eggc.ryoikumemo.data.NoteRepository
 import java.util.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteScreen(
     modifier: Modifier = Modifier,
-    timelineRepository: TimelineRepository,
+    noteRepository: NoteRepository,
     onNoteSelected: (Note) -> Unit,
     currentNoteId: String,
     onNoteUpdated: (Note) -> Unit,
@@ -68,8 +68,8 @@ fun NoteScreen(
 
     fun refreshNotes() {
         coroutineScope.launch {
-            notes = timelineRepository.getNotes()
-            subscribedIds = timelineRepository.getSubscribedNoteIds()
+            notes = noteRepository.getNotes()
+            subscribedIds = noteRepository.getSubscribedNoteIds()
         }
     }
 
@@ -82,7 +82,7 @@ fun NoteScreen(
             onDismiss = { showAddNoteDialog = false },
             onConfirm = { noteName, sharedId ->
                 coroutineScope.launch {
-                    timelineRepository.createNote(noteName, sharedId)
+                    noteRepository.createNote(noteName, sharedId)
                     refreshNotes()
                 }
                 showAddNoteDialog = false
@@ -98,7 +98,7 @@ fun NoteScreen(
             onConfirm = { newName, newSharedId ->
                 val updatedNote = note.copy(name = newName, sharedId = newSharedId)
                 coroutineScope.launch {
-                    timelineRepository.updateNote(updatedNote)
+                    noteRepository.updateNote(updatedNote)
                     refreshNotes()
                     onNoteUpdated(updatedNote)
                 }
@@ -113,7 +113,7 @@ fun NoteScreen(
             onDismiss = { showDeleteNoteDialog = null },
             onConfirm = {
                 coroutineScope.launch {
-                    timelineRepository.deleteNote(note.id)
+                    noteRepository.deleteNote(note.id)
                     refreshNotes()
                 }
                 showDeleteNoteDialog = null
@@ -126,7 +126,7 @@ fun NoteScreen(
             onDismiss = { showSubscribeDialog = false },
             onConfirm = { sharedId ->
                 coroutineScope.launch {
-                    timelineRepository.subscribeToSharedNote(sharedId)
+                    noteRepository.subscribeToSharedNote(sharedId)
                     refreshNotes()
                 }
                 showSubscribeDialog = false

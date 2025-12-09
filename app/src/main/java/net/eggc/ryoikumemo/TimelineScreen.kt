@@ -43,9 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineItem
-import net.eggc.ryoikumemo.data.TimelineRepository
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -58,7 +58,7 @@ import java.util.Locale
 @Composable
 fun TimelineScreen(
     modifier: Modifier = Modifier,
-    timelineRepository: TimelineRepository,
+    noteRepository: NoteRepository,
     noteId: String,
     onEditStampClick: (Long) -> Unit
 ) {
@@ -73,7 +73,7 @@ fun TimelineScreen(
         coroutineScope.launch {
             isLoading = true
             try {
-                timelineItems = timelineRepository.getTimelineItemsForMonth(noteId, currentMonth)
+                timelineItems = noteRepository.getTimelineItemsForMonth(noteId, currentMonth)
             } catch (e: Exception) {
                 Log.e("TimelineScreen", "Failed to load timeline items", e)
                 Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -98,7 +98,7 @@ fun TimelineScreen(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                timelineRepository.deleteTimelineItem(noteId, itemToDelete)
+                                noteRepository.deleteTimelineItem(noteId, itemToDelete)
                                 refreshTimeline()
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()

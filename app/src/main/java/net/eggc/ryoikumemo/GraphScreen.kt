@@ -21,9 +21,9 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
-import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -32,14 +32,14 @@ import java.time.temporal.ChronoUnit
 @Composable
 fun GraphScreen(
     modifier: Modifier = Modifier,
-    timelineRepository: TimelineRepository,
+    noteRepository: NoteRepository,
     noteId: String
 ) {
     var currentMonth by remember { mutableStateOf(LocalDate.now()) }
     var sleepData by remember { mutableStateOf<Map<Int, List<Pair<Float, Float>>>>(emptyMap()) }
 
     LaunchedEffect(noteId, currentMonth) {
-        val items = timelineRepository.getTimelineItemsForMonth(noteId, currentMonth)
+        val items = noteRepository.getTimelineItemsForMonth(noteId, currentMonth)
         val sleepWakeItems = items.filterIsInstance<StampItem>().filter {
             it.type == StampType.SLEEP || it.type == StampType.WAKE_UP
         }.sortedBy { it.timestamp }
