@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -59,13 +60,16 @@ fun NoteScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
+    var subscribedIds by remember { mutableStateOf<List<String>>(emptyList()) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showEditNoteDialog by remember { mutableStateOf<Note?>(null) }
     var showDeleteNoteDialog by remember { mutableStateOf<Note?>(null) }
+    var showSubscribeDialog by remember { mutableStateOf(false) }
 
     fun refreshNotes() {
         coroutineScope.launch {
             notes = timelineRepository.getNotes()
+            subscribedIds = timelineRepository.getSubscribedNoteIds()
         }
     }
 
@@ -117,17 +121,38 @@ fun NoteScreen(
         )
     }
 
+    if (showSubscribeDialog) {
+        SubscribeNoteDialog(
+            onDismiss = { showSubscribeDialog = false },
+            onConfirm = { sharedId ->
+                coroutineScope.launch {
+                    timelineRepository.subscribeToSharedNote(sharedId)
+                    refreshNotes()
+                }
+                showSubscribeDialog = false
+            }
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddNoteDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "ノートを追加")
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(onClick = { showAddNoteDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "ノートを追加")
+                }
+                Spacer(modifier = Modifier.padding(8.dp))
+                FloatingActionButton(onClick = { showSubscribeDialog = true }) {
+                    Icon(Icons.Default.Share, contentDescription = "共有ノートを購読")
+                }
             }
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier
-            .padding(padding)
-            .fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
             items(notes) { note ->
                 Card(
                     modifier = Modifier
@@ -159,6 +184,21 @@ fun NoteScreen(
                             Icon(Icons.Default.Delete, contentDescription = "削除")
                         }
                     }
+                }
+            }
+            if (subscribedIds.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "購読中のノートID",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
+                    )
+                }
+                items(subscribedIds) { id ->
+                    Text(
+                        text = id,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
                 }
             }
         }
@@ -257,6 +297,42 @@ private fun DeleteNoteDialog(
         confirmButton = {
             Button(onClick = onConfirm) {
                 Text("削除")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("キャンセル")
+            }
+        }
+    )
+}
+
+@Composable
+private fun SubscribeNoteDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var sharedId by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("共有ノートを購読") },
+        text = {
+            TextField(
+                value = sharedId,
+                onValueChange = { sharedId = it },
+                label = { Text("共有ID") }
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (sharedId.isNotBlank()) {
+                        onConfirm(sharedId)
+                    }
+                }
+            ) {
+                Text("購読")
             }
         },
         dismissButton = {

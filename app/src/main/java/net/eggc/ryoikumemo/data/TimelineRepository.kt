@@ -3,7 +3,9 @@ package net.eggc.ryoikumemo.data
 import android.content.Context
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
@@ -25,12 +27,16 @@ interface TimelineRepository {
 
     suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
     suspend fun deleteTimelineItem(noteId: String, item: TimelineItem)
+
+    suspend fun subscribeToSharedNote(sharedId: String)
+    suspend fun getSubscribedNoteIds(): List<String>
 }
 
 class FirestoreTimelineRepository : TimelineRepository {
     private val db = Firebase.firestore
     private val userId = Firebase.auth.currentUser?.uid ?: "anonymous"
-    private val notesCollection = db.collection("users").document(userId).collection("notes")
+    private val userDocRef = db.collection("users").document(userId)
+    private val notesCollection = userDocRef.collection("notes")
 
     override suspend fun getNotes(): List<Note> {
         val snapshot = notesCollection.get().await()
@@ -57,7 +63,7 @@ class FirestoreTimelineRepository : TimelineRepository {
         if (note.sharedId != null) {
             noteData["sharedId"] = note.sharedId
         } else {
-            noteData["sharedId"] = null
+            noteData.keys.remove("sharedId")
         }
         notesCollection.document(note.id).update(noteData).await()
     }
@@ -139,6 +145,16 @@ class FirestoreTimelineRepository : TimelineRepository {
             timelineCollection(noteId).document(item.timestamp.toString()).delete().await()
         }
     }
+
+    override suspend fun subscribeToSharedNote(sharedId: String) {
+        val subscription = mapOf("subscribedNoteIds" to FieldValue.arrayUnion(sharedId))
+        userDocRef.set(subscription, SetOptions.merge()).await()
+    }
+
+    override suspend fun getSubscribedNoteIds(): List<String> {
+        val snapshot = userDocRef.get().await()
+        return snapshot.get("subscribedNoteIds") as? List<String> ?: emptyList()
+    }
 }
 
 class SharedPreferencesTimelineRepository(private val context: Context) : TimelineRepository {
@@ -214,5 +230,14 @@ class SharedPreferencesTimelineRepository(private val context: Context) : Timeli
                 apply()
             }
         }
+    }
+
+    override suspend fun subscribeToSharedNote(sharedId: String) {
+        // Not implemented for local storage
+    }
+
+    override suspend fun getSubscribedNoteIds(): List<String> {
+        // Not implemented for local storage
+        return emptyList()
     }
 }
