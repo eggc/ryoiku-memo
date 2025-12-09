@@ -218,6 +218,18 @@ fun NoteScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clickable(enabled = info != null) {
+                                if (info != null) {
+                                    onNoteSelected(
+                                        Note(
+                                            id = info.noteId,
+                                            name = info.noteName,
+                                            ownerId = info.ownerId,
+                                            sharedId = sharedId
+                                        )
+                                    )
+                                }
+                            }
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {

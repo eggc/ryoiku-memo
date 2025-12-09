@@ -2,7 +2,12 @@ package net.eggc.ryoikumemo.data
 
 import java.time.LocalDate
 
-data class Note(val id: String, val name: String, val sharedId: String? = null)
+data class Note(
+    val id: String,
+    val name: String,
+    val sharedId: String? = null,
+    val ownerId: String? = null
+)
 
 data class SharedNoteInfo(val noteId: String, val ownerId: String, val noteName: String)
 
@@ -12,7 +17,7 @@ interface NoteRepository {
     suspend fun updateNote(note: Note)
     suspend fun deleteNote(noteId: String)
 
-    suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem>
+    suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, sharedId: String?, dateInMonth: LocalDate): List<TimelineItem>
     suspend fun getStampItem(noteId: String, timestamp: Long): StampItem?
     suspend fun getStampNoteSuggestions(noteId: String): List<String>
 

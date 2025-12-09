@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineItem
@@ -59,7 +60,7 @@ import java.util.Locale
 fun TimelineScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
-    noteId: String,
+    note: Note,
     onEditStampClick: (Long) -> Unit
 ) {
     val context = LocalContext.current
@@ -73,7 +74,7 @@ fun TimelineScreen(
         coroutineScope.launch {
             isLoading = true
             try {
-                timelineItems = noteRepository.getTimelineItemsForMonth(noteId, currentMonth)
+                timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId!!, note.id, note.sharedId, currentMonth)
             } catch (e: Exception) {
                 Log.e("TimelineScreen", "Failed to load timeline items", e)
                 Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -83,7 +84,7 @@ fun TimelineScreen(
         }
     }
 
-    LaunchedEffect(noteId, currentMonth) {
+    LaunchedEffect(note.id, currentMonth) {
         refreshTimeline()
     }
 
@@ -98,7 +99,7 @@ fun TimelineScreen(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                noteRepository.deleteTimelineItem(noteId, itemToDelete)
+                                noteRepository.deleteTimelineItem(note.id, itemToDelete)
                                 refreshTimeline()
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()

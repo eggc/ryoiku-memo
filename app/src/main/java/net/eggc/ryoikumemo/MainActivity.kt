@@ -169,7 +169,7 @@ fun RyoikumemoApp() {
                     AppDestinations.TIMELINE -> TimelineScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
-                        noteId = currentNote!!.id,
+                        note = currentNote!!,
                         onEditStampClick = { stampId ->
                             editingStampId = stampId
                             currentDestination = AppDestinations.EDIT_STAMP

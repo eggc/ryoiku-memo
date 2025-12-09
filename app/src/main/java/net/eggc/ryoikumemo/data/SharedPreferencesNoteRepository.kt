@@ -9,13 +9,13 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
     private val notesPrefs = context.getSharedPreferences("notes_prefs", Context.MODE_PRIVATE)
 
     override suspend fun getNotes(): List<Note> {
-        return notesPrefs.all.map { (id, name) -> Note(id, name as String, null) }
+        return notesPrefs.all.map { (id, name) -> Note(id, name as String, null, null) }
     }
 
     override suspend fun createNote(name: String, sharedId: String?): Note {
         val id = UUID.randomUUID().toString()
         notesPrefs.edit().putString(id, name).apply()
-        return Note(id, name, sharedId)
+        return Note(id, name, sharedId, null)
     }
 
     override suspend fun updateNote(note: Note) {
@@ -29,7 +29,12 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
 
     private fun stampPrefs(noteId: String) = context.getSharedPreferences("stamp_prefs_$noteId", Context.MODE_PRIVATE)
 
-    override suspend fun getTimelineItemsForMonth(noteId: String, dateInMonth: LocalDate): List<TimelineItem> {
+    override suspend fun getTimelineItemsForMonth(
+        ownerId: String,
+        noteId: String,
+        sharedId: String?,
+        dateInMonth: LocalDate
+    ): List<TimelineItem> {
         // SharedPreferences implementation doesn't support month-based filtering easily, returning all for simplicity
         val stamps = stampPrefs(noteId).all.mapNotNull { (key, value) ->
             try {
