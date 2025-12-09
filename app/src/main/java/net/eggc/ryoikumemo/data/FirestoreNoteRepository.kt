@@ -132,7 +132,8 @@ class FirestoreNoteRepository : NoteRepository {
                 "stamp" -> StampItem(
                     timestamp = doc.getLong("timestamp")!!,
                     type = StampType.valueOf(doc.getString("type")!!),
-                    note = doc.getString("note")!!
+                    note = doc.getString("note")!!,
+                    operatorName = doc.getString("operatorName")
                 )
                 else -> null
             }
@@ -146,7 +147,8 @@ class FirestoreNoteRepository : NoteRepository {
         return StampItem(
             timestamp = doc.getLong("timestamp")!!,
             type = StampType.valueOf(doc.getString("type")!!),
-            note = doc.getString("note")!!
+            note = doc.getString("note")!!,
+            operatorName = doc.getString("operatorName")
         )
     }
 
@@ -170,7 +172,8 @@ class FirestoreNoteRepository : NoteRepository {
             "itemType" to "stamp",
             "timestamp" to timestamp,
             "type" to stampType.name,
-            "note" to note
+            "note" to note,
+            "operatorName" to Firebase.auth.currentUser?.displayName
         )
         timelineCollection(userId, noteId).document(timestamp.toString()).set(stampMap).await()
     }

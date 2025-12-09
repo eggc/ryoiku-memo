@@ -164,6 +164,7 @@ fun TimelineScreen(
                                         timestamp = item.timestamp,
                                         stampType = item.type,
                                         note = item.note,
+                                        operatorName = item.operatorName,
                                         onEditClick = { onEditStampClick(item.timestamp) },
                                         onDeleteClick = { showDeleteDialogFor = item }
                                     )
@@ -206,6 +207,7 @@ fun StampHistoryCard(
     timestamp: Long,
     stampType: net.eggc.ryoikumemo.data.StampType,
     note: String,
+    operatorName: String?,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -234,6 +236,11 @@ fun StampHistoryCard(
             ) {
                 Text(
                     text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp)),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = operatorName ?: "不明",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.weight(1f))

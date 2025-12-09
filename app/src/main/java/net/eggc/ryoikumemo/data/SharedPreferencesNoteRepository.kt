@@ -42,7 +42,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
                 val parts = valueString.split('|', limit = 2)
                 val type = StampType.valueOf(parts[0])
                 val note = if (parts.size > 1) parts[1] else ""
-                StampItem(timestamp = key.toLong(), type = type, note = note)
+                StampItem(timestamp = key.toLong(), type = type, note = note, operatorName = null)
             } catch (e: Exception) {
                 null
             }
@@ -56,7 +56,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         val parts = valueString.split('|', limit = 2)
         val type = StampType.valueOf(parts[0])
         val note = if (parts.size > 1) parts[1] else ""
-        return StampItem(timestamp = timestamp, type = type, note = note)
+        return StampItem(timestamp = timestamp, type = type, note = note, operatorName = null)
     }
 
     override suspend fun getStampNoteSuggestions(noteId: String): List<String> {
@@ -70,6 +70,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
 
     override suspend fun saveStamp(noteId: String, stampType: StampType, note: String, timestamp: Long) {
         with(stampPrefs(noteId).edit()) {
+            // operatorName is not stored in local storage
             putString(timestamp.toString(), "${stampType.name}|${note}")
             apply()
         }

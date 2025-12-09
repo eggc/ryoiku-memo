@@ -19,7 +19,8 @@ sealed interface TimelineItem {
 data class StampItem(
     override val timestamp: Long,
     val type: StampType,
-    val note: String
+    val note: String,
+    val operatorName: String? = null
 ) : TimelineItem
 
 sealed interface TimelineFilter {
