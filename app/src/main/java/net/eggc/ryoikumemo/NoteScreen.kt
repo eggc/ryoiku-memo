@@ -66,6 +66,7 @@ fun NoteScreen(
     var showEditNoteDialog by remember { mutableStateOf<Note?>(null) }
     var showDeleteNoteDialog by remember { mutableStateOf<Note?>(null) }
     var showSubscribeDialog by remember { mutableStateOf(false) }
+    var showUnsubscribeDialog by remember { mutableStateOf<String?>(null) }
 
     fun refreshNotes() {
         coroutineScope.launch {
@@ -138,6 +139,20 @@ fun NoteScreen(
         )
     }
 
+    showUnsubscribeDialog?.let { sharedId ->
+        UnsubscribeDialog(
+            sharedId = sharedId,
+            onDismiss = { showUnsubscribeDialog = null },
+            onConfirm = {
+                coroutineScope.launch {
+                    noteRepository.unsubscribeFromSharedNote(sharedId)
+                    refreshNotes()
+                }
+                showUnsubscribeDialog = null
+            }
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
@@ -204,17 +219,22 @@ fun NoteScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            if (info != null) {
-                                Text(text = info.noteName, style = MaterialTheme.typography.titleLarge)
-                                Text(text = "持ち主: ${info.ownerId}", style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                Text(
-                                    text = "参照エラー",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Text(text = "ID: $sharedId", style = MaterialTheme.typography.bodySmall)
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                if (info != null) {
+                                    Text(text = info.noteName, style = MaterialTheme.typography.titleLarge)
+                                    Text(text = "持ち主: ${info.ownerId}", style = MaterialTheme.typography.bodySmall)
+                                } else {
+                                    Text(
+                                        text = "参照エラー",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(text = "ID: $sharedId", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            IconButton(onClick = { showUnsubscribeDialog = sharedId }) {
+                                Icon(Icons.Default.Delete, contentDescription = "購読を解除")
                             }
                         }
                     }
@@ -352,6 +372,29 @@ private fun SubscribeNoteDialog(
                 }
             ) {
                 Text("購読")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("キャンセル")
+            }
+        }
+    )
+}
+
+@Composable
+private fun UnsubscribeDialog(
+    sharedId: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("購読を停止") },
+        text = { Text("このノートの購読を停止しますか？") },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("停止する")
             }
         },
         dismissButton = {

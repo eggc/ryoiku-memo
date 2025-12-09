@@ -182,6 +182,11 @@ class FirestoreNoteRepository : NoteRepository {
         userDocRef.set(subscription, SetOptions.merge()).await()
     }
 
+    override suspend fun unsubscribeFromSharedNote(sharedId: String) {
+        val subscription = mapOf("subscribedNoteIds" to FieldValue.arrayRemove(sharedId))
+        userDocRef.update(subscription).await()
+    }
+
     override suspend fun getSubscribedNoteIds(): List<String> {
         val snapshot = userDocRef.get().await()
         return snapshot.get("subscribedNoteIds") as? List<String> ?: emptyList()

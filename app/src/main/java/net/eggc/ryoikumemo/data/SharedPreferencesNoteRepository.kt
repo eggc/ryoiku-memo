@@ -83,6 +83,10 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         // Not implemented for local storage
     }
 
+    override suspend fun unsubscribeFromSharedNote(sharedId: String) {
+        // Not implemented for local storage
+    }
+
     override suspend fun getSubscribedNoteIds(): List<String> {
         // Not implemented for local storage
         return emptyList()

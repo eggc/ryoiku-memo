@@ -20,6 +20,7 @@ interface NoteRepository {
     suspend fun deleteTimelineItem(noteId: String, item: TimelineItem)
 
     suspend fun subscribeToSharedNote(sharedId: String)
+    suspend fun unsubscribeFromSharedNote(sharedId: String)
     suspend fun getSubscribedNoteIds(): List<String>
 
     suspend fun getNoteBySharedId(sharedId: String): SharedNoteInfo?
