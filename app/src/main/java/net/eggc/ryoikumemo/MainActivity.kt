@@ -238,7 +238,13 @@ fun RyoikumemoApp() {
                             val intent = Intent(context, AuthActivity::class.java)
                             (context as? Activity)?.startActivity(intent)
                             (context as? Activity)?.finish()
-                        }
+                        },
+                        onTermsClick = { currentDestination = AppDestinations.TERMS }
+                    )
+
+                    AppDestinations.TERMS -> TermsScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        onNavigateUp = { currentDestination = AppDestinations.SETTINGS }
                     )
                 }
             }
@@ -255,5 +261,6 @@ enum class AppDestinations(
     STAMP("スタンプ", Icons.Default.AccessTime),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
-    EDIT_STAMP("スタンプ編集", null)
+    EDIT_STAMP("スタンプ編集", null),
+    TERMS("利用規約", null)
 }

@@ -1,5 +1,6 @@
 package net.eggc.ryoikumemo
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,8 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +36,8 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     currentUser: FirebaseUser?,
     onLogoutClick: () -> Unit,
-    onLoginClick: () -> Unit
+    onLoginClick: () -> Unit,
+    onTermsClick: () -> Unit,
 ) {
     LazyColumn(
         modifier = modifier
@@ -45,6 +50,30 @@ fun SettingsScreen(
                     UserInfoCard(currentUser, onLogoutClick)
                 } else {
                     LoginPromptCard(onLoginClick)
+                }
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        item {
+            SettingsSection("アプリ情報") {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onTermsClick)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "利用規約",
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null
+                        )
+                    }
                 }
             }
         }
