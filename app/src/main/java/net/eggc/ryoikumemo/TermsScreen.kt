@@ -22,7 +22,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -91,7 +90,7 @@ fun TermsScreen(
                         )
                         addStyle(
                             style = SpanStyle(
-                                color = Color.Blue,
+                                color = MaterialTheme.colorScheme.primary,
                                 textDecoration = TextDecoration.Underline
                             ),
                             start = matchResult.range.first,
@@ -108,7 +107,10 @@ fun TermsScreen(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
                                 context.startActivity(intent)
                             }
-                    }
+                    },
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 )
             }
         }
