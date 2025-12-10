@@ -11,10 +11,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -120,8 +126,39 @@ class AuthActivity : ComponentActivity() {
 
 @Composable
 fun AuthScreen(onLoginClick: () -> Unit, onSkipLoginClick: () -> Unit) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("ご利用にあたっての注意事項") },
+            text = {
+                Column {
+                    Text("ログインせずに利用した場合、データはお使いのスマートフォン内に保存されます。そのため、以下の点にご注意ください。")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("・機種変更など、お使いのスマートフォンを変更する際にデータを引き継ぐことはできません。")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("・後からログインした場合でも、ログインせずに作成したデータを引き継ぐことはできません。")
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showDialog = false
+                    onSkipLoginClick()
+                }) {
+                    Text("利用を続ける")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("キャンセル")
+                }
+            }
+        )
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -129,7 +166,7 @@ fun AuthScreen(onLoginClick: () -> Unit, onSkipLoginClick: () -> Unit) {
             Text("Googleでログイン")
         }
         Spacer(modifier = Modifier.height(16.dp))
-        TextButton(onClick = onSkipLoginClick) {
+        TextButton(onClick = { showDialog = true }) {
             Text("ログインせずに利用する")
         }
     }
