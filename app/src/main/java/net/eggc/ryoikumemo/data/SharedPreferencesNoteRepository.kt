@@ -61,13 +61,17 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         return StampItem(timestamp = timestamp, type = type, note = note, operatorName = null)
     }
 
-    override suspend fun getStampNoteSuggestions(ownerId: String, noteId: String): List<String> {
+    override suspend fun getStampNoteSuggestions(ownerId: String, noteId: String, type: StampType): List<String> {
         return stampPrefs(noteId).all.values
+            .asSequence()
             .mapNotNull { it as? String }
-            .map { it.split('|', limit = 2).getOrElse(1) { "" } }
+            .map { it.split('|', limit = 2) }
+            .filter { it.size == 2 && StampType.valueOf(it[0]) == type }
+            .map { it[1] }
             .filter { it.isNotBlank() }
             .distinct()
             .take(10)
+            .toList()
     }
 
     override suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long) {

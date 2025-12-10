@@ -19,7 +19,7 @@ interface NoteRepository {
 
     suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, sharedId: String?, dateInMonth: LocalDate): List<TimelineItem>
     suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem?
-    suspend fun getStampNoteSuggestions(ownerId: String, noteId: String): List<String>
+    suspend fun getStampNoteSuggestions(ownerId: String, noteId: String, type: StampType): List<String>
 
     suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
     suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem)

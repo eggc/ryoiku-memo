@@ -71,7 +71,7 @@ fun EditStampScreen(
     LaunchedEffect(stampId, note.id) {
         stampItem = noteRepository.getStampItem(note.ownerId, note.id, stampId)
         if (stampItem?.type != StampType.MEMO) {
-            suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id)
+            suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id, stampItem!!.type)
         }
     }
 

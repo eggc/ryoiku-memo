@@ -151,9 +151,10 @@ class FirestoreNoteRepository : NoteRepository {
         )
     }
 
-    override suspend fun getStampNoteSuggestions(ownerId: String, noteId: String): List<String> {
+    override suspend fun getStampNoteSuggestions(ownerId: String, noteId: String, type: StampType): List<String> {
         return timelineCollection(ownerId, noteId)
             .whereEqualTo("itemType", "stamp")
+            .whereEqualTo("type", type.name)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(100) // Look at last 100 stamps for suggestions
             .get()
