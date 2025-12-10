@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
@@ -55,6 +56,7 @@ import java.util.Random
 fun NoteScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
+    currentUser: FirebaseUser?,
     onNoteSelected: (Note) -> Unit,
     currentNoteId: String,
     onNoteUpdated: (Note) -> Unit,
@@ -71,9 +73,11 @@ fun NoteScreen(
     fun refreshNotes() {
         coroutineScope.launch {
             notes = noteRepository.getNotes()
-            val ids = noteRepository.getSubscribedNoteIds()
-            subscribedNotes = ids.map {
-                it to noteRepository.getNoteBySharedId(it)
+            if (currentUser != null) {
+                val ids = noteRepository.getSubscribedNoteIds()
+                subscribedNotes = ids.map {
+                    it to noteRepository.getNoteBySharedId(it)
+                }
             }
         }
     }
@@ -84,6 +88,7 @@ fun NoteScreen(
 
     if (showAddNoteDialog) {
         EditNoteDialog(
+            currentUser = currentUser,
             onDismiss = { showAddNoteDialog = false },
             onConfirm = { noteName, sharedId ->
                 coroutineScope.launch {
@@ -99,6 +104,7 @@ fun NoteScreen(
         EditNoteDialog(
             initialName = note.name,
             initialSharedId = note.sharedId,
+            currentUser = currentUser,
             onDismiss = { showEditNoteDialog = null },
             onConfirm = { newName, newSharedId ->
                 val updatedNote = note.copy(name = newName, sharedId = newSharedId)
@@ -160,9 +166,11 @@ fun NoteScreen(
                 FloatingActionButton(onClick = { showAddNoteDialog = true }) {
                     Icon(Icons.Default.Add, contentDescription = "ノートを追加")
                 }
-                Spacer(modifier = Modifier.padding(8.dp))
-                FloatingActionButton(onClick = { showSubscribeDialog = true }) {
-                    Icon(Icons.Default.Share, contentDescription = "共有ノートを購読")
+                if (currentUser != null) {
+                    Spacer(modifier = Modifier.padding(8.dp))
+                    FloatingActionButton(onClick = { showSubscribeDialog = true }) {
+                        Icon(Icons.Default.Share, contentDescription = "共有ノートを購読")
+                    }
                 }
             }
         }
@@ -205,7 +213,7 @@ fun NoteScreen(
                     }
                 }
             }
-            if (subscribedNotes.isNotEmpty()) {
+            if (currentUser != null && subscribedNotes.isNotEmpty()) {
                 item {
                     Text(
                         text = "購読中のノート",
@@ -260,6 +268,7 @@ fun NoteScreen(
 private fun EditNoteDialog(
     initialName: String = "",
     initialSharedId: String? = null,
+    currentUser: FirebaseUser?,
     onDismiss: () -> Unit,
     onConfirm: (String, String?) -> Unit
 ) {
@@ -278,39 +287,41 @@ private fun EditNoteDialog(
                     onValueChange = { noteName = it },
                     label = { Text("ノート名") }
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    Text("共有ノート")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = isShared,
-                        onCheckedChange = {
-                            isShared = it
-                            if (it) {
-                                if (sharedId == null) {
-                                    sharedId = NanoIdUtils.randomNanoId(
-                                        Random(),
-                                        "0123456789abcdefghijklmnopqrstuvwxyz".toCharArray(),
-                                        10
-                                    )
+                if (currentUser != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        Text("共有ノート")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = isShared,
+                            onCheckedChange = {
+                                isShared = it
+                                if (it) {
+                                    if (sharedId == null) {
+                                        sharedId = NanoIdUtils.randomNanoId(
+                                            Random(),
+                                            "0123456789abcdefghijklmnopqrstuvwxyz".toCharArray(),
+                                            10
+                                        )
+                                    }
+                                } else {
+                                    sharedId = null
                                 }
-                            } else {
-                                sharedId = null
                             }
-                        }
-                    )
-                }
-                if (isShared && sharedId != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "共有ノートID: $sharedId",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 8.dp)
                         )
-                        IconButton(onClick = { clipboardManager.setText(AnnotatedString(sharedId!!)) }) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "コピー")
+                    }
+                    if (isShared && sharedId != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "共有ノートID: $sharedId",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(sharedId!!)) }) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "コピー")
+                            }
                         }
                     }
                 }

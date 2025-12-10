@@ -48,6 +48,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
@@ -210,6 +211,7 @@ fun RyoikumemoApp() {
                     AppDestinations.NOTE -> NoteScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
+                        currentUser = currentUser,
                         currentNoteId = currentNote!!.id,
                         onNoteSelected = {
                             currentNote = it
