@@ -4,18 +4,20 @@ import android.content.Context
 import java.time.LocalDate
 import java.util.UUID
 
+private const val LOCAL_USER_ID = "local_user"
+
 class SharedPreferencesNoteRepository(private val context: Context) : NoteRepository {
 
     private val notesPrefs = context.getSharedPreferences("notes_prefs", Context.MODE_PRIVATE)
 
     override suspend fun getNotes(): List<Note> {
-        return notesPrefs.all.map { (id, name) -> Note(id, name as String, null, null) }
+        return notesPrefs.all.map { (id, name) -> Note(id, name as String, null, LOCAL_USER_ID) }
     }
 
     override suspend fun createNote(name: String, sharedId: String?): Note {
         val id = UUID.randomUUID().toString()
         notesPrefs.edit().putString(id, name).apply()
-        return Note(id, name, sharedId, null)
+        return Note(id, name, sharedId, LOCAL_USER_ID)
     }
 
     override suspend fun updateNote(note: Note) {

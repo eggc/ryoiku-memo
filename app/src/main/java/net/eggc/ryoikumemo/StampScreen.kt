@@ -85,7 +85,7 @@ fun StampScreen(
                     onClick = {
                         if (!isCustomizing) {
                             coroutineScope.launch {
-                                noteRepository.saveStamp(note.ownerId!!, note.id, stampType, "")
+                                noteRepository.saveStamp(note.ownerId, note.id, stampType, "")
                                 Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
                                 onStampSaved()
                             }

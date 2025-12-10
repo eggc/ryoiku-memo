@@ -40,7 +40,7 @@ fun GraphScreen(
     var sleepData by remember { mutableStateOf<Map<Int, List<Pair<Float, Float>>>>(emptyMap()) }
 
     LaunchedEffect(note.id, currentMonth) {
-        val items = noteRepository.getTimelineItemsForMonth(note.ownerId!!, note.id, note.sharedId, currentMonth)
+        val items = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, currentMonth)
         val sleepWakeItems = items.filterIsInstance<StampItem>().filter {
             it.type == StampType.SLEEP || it.type == StampType.WAKE_UP
         }.sortedBy { it.timestamp }

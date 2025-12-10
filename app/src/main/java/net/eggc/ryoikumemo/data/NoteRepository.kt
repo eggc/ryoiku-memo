@@ -6,7 +6,7 @@ data class Note(
     val id: String,
     val name: String,
     val sharedId: String? = null,
-    val ownerId: String? = null
+    val ownerId: String
 )
 
 data class SharedNoteInfo(val noteId: String, val ownerId: String, val noteName: String)

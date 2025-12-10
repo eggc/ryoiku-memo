@@ -69,7 +69,7 @@ fun EditStampScreen(
     var currentTimestamp by remember { mutableStateOf(stampId) }
 
     LaunchedEffect(stampId, note.id) {
-        stampItem = noteRepository.getStampItem(note.ownerId!!, note.id, stampId)
+        stampItem = noteRepository.getStampItem(note.ownerId, note.id, stampId)
         if (stampItem?.type != StampType.MEMO) {
             suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id)
         }
@@ -225,7 +225,7 @@ fun EditStampScreen(
 
         Button(onClick = {
             coroutineScope.launch {
-                noteRepository.deleteTimelineItem(note.ownerId!!, note.id, stampItem!!)
+                noteRepository.deleteTimelineItem(note.ownerId, note.id, stampItem!!)
                 noteRepository.saveStamp(note.ownerId, note.id, stampItem!!.type, noteText, currentTimestamp)
                 Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
                 onStampUpdated()

@@ -2,6 +2,8 @@ package net.eggc.ryoikumemo.data
 
 import android.content.Context
 
+private const val LOCAL_USER_ID = "local_user"
+
 class AppPreferences(context: Context) {
 
     private val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -27,7 +29,7 @@ class AppPreferences(context: Context) {
     fun getLastSelectedNote(): Note? {
         val id = prefs.getString("last_note_id", null) ?: return null
         val name = prefs.getString("last_note_name", "") ?: ""
-        val ownerId = prefs.getString("last_note_owner_id", null)
+        val ownerId = prefs.getString("last_note_owner_id", LOCAL_USER_ID) ?: LOCAL_USER_ID
         val sharedId = prefs.getString("last_note_shared_id", null)
         return Note(id, name, sharedId, ownerId)
     }

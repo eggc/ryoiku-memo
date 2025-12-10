@@ -74,7 +74,7 @@ fun TimelineScreen(
         coroutineScope.launch {
             isLoading = true
             try {
-                timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId!!, note.id, note.sharedId, currentMonth)
+                timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, currentMonth)
             } catch (e: Exception) {
                 Log.e("TimelineScreen", "Failed to load timeline items", e)
                 Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -99,7 +99,7 @@ fun TimelineScreen(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                noteRepository.deleteTimelineItem(note.ownerId!!, note.id, itemToDelete)
+                                noteRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
                                 refreshTimeline()
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
