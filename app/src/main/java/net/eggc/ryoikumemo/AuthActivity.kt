@@ -8,12 +8,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,6 +27,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -44,6 +52,12 @@ class AuthActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var credentialManager: CredentialManager
 
+    private enum class AuthDestinations {
+        AUTH,
+        TERMS,
+        PRIVACY_POLICY,
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -52,17 +66,33 @@ class AuthActivity : ComponentActivity() {
 
         setContent {
             RyoikumemoTheme {
-                AuthScreen(
-                    onLoginClick = {
-                        lifecycleScope.launch {
-                            signIn()
-                        }
-                    },
-                    onSkipLoginClick = {
-                        startActivity(Intent(this, MainActivity::class.java))
-                        finish()
+                var currentDestination by remember { mutableStateOf(AuthDestinations.AUTH) }
+
+                when (currentDestination) {
+                    AuthDestinations.AUTH -> {
+                        AuthScreen(
+                            onLoginClick = {
+                                lifecycleScope.launch {
+                                    signIn()
+                                }
+                            },
+                            onSkipLoginClick = {
+                                startActivity(Intent(this, MainActivity::class.java))
+                                finish()
+                            },
+                            onTermsClick = { currentDestination = AuthDestinations.TERMS },
+                            onPrivacyPolicyClick = { currentDestination = AuthDestinations.PRIVACY_POLICY }
+                        )
                     }
-                )
+
+                    AuthDestinations.TERMS -> {
+                        TermsScreen(onNavigateUp = { currentDestination = AuthDestinations.AUTH })
+                    }
+
+                    AuthDestinations.PRIVACY_POLICY -> {
+                        PrivacyPolicyScreen(onNavigateUp = { currentDestination = AuthDestinations.AUTH })
+                    }
+                }
             }
         }
     }
@@ -93,9 +123,13 @@ class AuthActivity : ComponentActivity() {
             val credential = result.credential
             if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 try {
-                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val googleIdTokenCredential =
+                        GoogleIdTokenCredential.createFrom(credential.data)
                     firebaseAuthWithGoogle(googleIdTokenCredential.idToken)
                 } catch (e: GoogleIdTokenParsingException) {
+                    Log.e("AuthActivity", "Google ID token parsing failed", e)
+                    Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
                     Log.e("AuthActivity", "Google ID token parsing failed", e)
                     Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
                 }
@@ -125,8 +159,14 @@ class AuthActivity : ComponentActivity() {
 }
 
 @Composable
-fun AuthScreen(onLoginClick: () -> Unit, onSkipLoginClick: () -> Unit) {
+fun AuthScreen(
+    onLoginClick: () -> Unit,
+    onSkipLoginClick: () -> Unit,
+    onTermsClick: () -> Unit,
+    onPrivacyPolicyClick: () -> Unit
+) {
     var showDialog by remember { mutableStateOf(false) }
+    var agreed by remember { mutableStateOf(false) }
 
     if (showDialog) {
         AlertDialog(
@@ -158,15 +198,62 @@ fun AuthScreen(onLoginClick: () -> Unit, onSkipLoginClick: () -> Unit) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Button(onClick = onLoginClick) {
+        val annotatedString = buildAnnotatedString {
+            val linkStyle = SpanStyle(
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline
+            )
+            pushStringAnnotation(tag = "TERMS", annotation = "TERMS")
+            withStyle(style = linkStyle) {
+                append("利用規約")
+            }
+            pop()
+            append("と")
+            pushStringAnnotation(tag = "POLICY", annotation = "POLICY")
+            withStyle(style = linkStyle) {
+                append("プライバシーポリシー")
+            }
+            pop()
+            append("に同意の上、ご利用ください。")
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 24.dp)
+        ) {
+            Checkbox(checked = agreed, onCheckedChange = { agreed = it })
+            ClickableText(
+                text = annotatedString,
+                onClick = { offset ->
+                    annotatedString.getStringAnnotations(
+                        tag = "TERMS",
+                        start = offset,
+                        end = offset
+                    )
+                        .firstOrNull()?.let { onTermsClick() }
+
+                    annotatedString.getStringAnnotations(
+                        tag = "POLICY",
+                        start = offset,
+                        end = offset
+                    )
+                        .firstOrNull()?.let { onPrivacyPolicyClick() }
+                },
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        Button(onClick = onLoginClick, enabled = agreed) {
             Text("Googleでログイン")
         }
         Spacer(modifier = Modifier.height(16.dp))
-        TextButton(onClick = { showDialog = true }) {
+        TextButton(onClick = { showDialog = true }, enabled = agreed) {
             Text("ログインせずに利用する")
         }
     }
