@@ -17,12 +17,12 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -162,15 +162,16 @@ fun NoteScreen(
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(onClick = { showAddNoteDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "ノートを追加")
-                }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExtendedFloatingActionButton(
+                    onClick = { showAddNoteDialog = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = "新規ノート追加") },
+                    text = { Text("新規ノート追加") }
+                )
                 if (currentUser != null) {
-                    Spacer(modifier = Modifier.padding(8.dp))
-                    FloatingActionButton(onClick = { showSubscribeDialog = true }) {
-                        Icon(Icons.Default.Share, contentDescription = "共有ノートを購読")
-                    }
+                    ExtendedFloatingActionButton(onClick = { showSubscribeDialog = true },
+                        icon = { Icon(Icons.Default.GroupAdd, contentDescription = "共同編集に参加") },
+                        text = { Text("共同編集に参加") })
                 }
             }
         }
@@ -216,7 +217,7 @@ fun NoteScreen(
             if (currentUser != null && subscribedNotes.isNotEmpty()) {
                 item {
                     Text(
-                        text = "購読中のノート",
+                        text = "共同編集中のノート",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
                     )
@@ -254,7 +255,7 @@ fun NoteScreen(
                                 }
                             }
                             IconButton(onClick = { showUnsubscribeDialog = sharedId }) {
-                                Icon(Icons.Default.Delete, contentDescription = "購読を解除")
+                                Icon(Icons.Default.Delete, contentDescription = "共同編集を停止")
                             }
                         }
                     }
@@ -292,7 +293,7 @@ private fun EditNoteDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(top = 16.dp)
                     ) {
-                        Text("共有ノート")
+                        Text("共同編集ノート")
                         Spacer(modifier = Modifier.width(8.dp))
                         Switch(
                             checked = isShared,
@@ -315,7 +316,7 @@ private fun EditNoteDialog(
                     if (isShared && sharedId != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "共有ノートID: $sharedId",
+                                text = "共同編集ID: $sharedId",
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
@@ -378,12 +379,12 @@ private fun SubscribeNoteDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("共有ノートを購読") },
+        title = { Text("共同編集に参加") },
         text = {
             TextField(
                 value = sharedId,
                 onValueChange = { sharedId = it },
-                label = { Text("共有ID") }
+                label = { Text("共同編集ID") }
             )
         },
         confirmButton = {
@@ -394,7 +395,7 @@ private fun SubscribeNoteDialog(
                     }
                 }
             ) {
-                Text("購読")
+                Text("参加する")
             }
         },
         dismissButton = {
@@ -413,8 +414,8 @@ private fun UnsubscribeDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("購読を停止") },
-        text = { Text("このノートの購読を停止しますか？") },
+        title = { Text("共同編集を停止") },
+        text = { Text("このノートの共同編集を停止しますか？") },
         confirmButton = {
             Button(onClick = onConfirm) {
                 Text("停止する")
