@@ -33,18 +33,18 @@ import java.io.InputStreamReader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TermsScreen(
+fun PrivacyPolicyScreen(
     modifier: Modifier = Modifier,
     onNavigateUp: () -> Unit
 ) {
     val context = LocalContext.current
-    var termsText by remember { mutableStateOf("") }
+    var privacyPolicyText by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         try {
-            val inputStream = context.assets.open("terms.txt")
+            val inputStream = context.assets.open("privacy_policy.txt")
             val reader = BufferedReader(InputStreamReader(inputStream))
-            termsText = reader.readText()
+            privacyPolicyText = reader.readText()
         } catch (e: Exception) {
             // Handle exception
         }
@@ -54,7 +54,7 @@ fun TermsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("利用規約") },
+                title = { Text("プライバシーポリシー") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
                         Icon(
@@ -74,15 +74,15 @@ fun TermsScreen(
         ) {
             item {
                 Text(
-                    text = "利用規約",
+                    text = "プライバシーポリシー",
                     style = MaterialTheme.typography.headlineMedium
                 )
             }
             item {
                 val annotatedString = buildAnnotatedString {
-                    append(termsText)
+                    append(privacyPolicyText)
                     val urlPattern = "https://[^\\s]+".toRegex()
-                    urlPattern.findAll(termsText).forEach { matchResult ->
+                    urlPattern.findAll(privacyPolicyText).forEach { matchResult ->
                         addStringAnnotation(
                             tag = "URL",
                             annotation = matchResult.value,

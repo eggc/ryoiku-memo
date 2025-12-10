@@ -239,10 +239,16 @@ fun RyoikumemoApp() {
                             (context as? Activity)?.startActivity(intent)
                             (context as? Activity)?.finish()
                         },
-                        onTermsClick = { currentDestination = AppDestinations.TERMS }
+                        onTermsClick = { currentDestination = AppDestinations.TERMS },
+                        onPrivacyPolicyClick = { currentDestination = AppDestinations.PRIVACY_POLICY }
                     )
 
                     AppDestinations.TERMS -> TermsScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        onNavigateUp = { currentDestination = AppDestinations.SETTINGS }
+                    )
+
+                    AppDestinations.PRIVACY_POLICY -> PrivacyPolicyScreen(
                         modifier = Modifier.padding(innerPadding),
                         onNavigateUp = { currentDestination = AppDestinations.SETTINGS }
                     )
@@ -262,5 +268,6 @@ enum class AppDestinations(
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
     EDIT_STAMP("スタンプ編集", null),
-    TERMS("利用規約", null)
+    TERMS("利用規約", null),
+    PRIVACY_POLICY("プライバシーポリシー", null)
 }

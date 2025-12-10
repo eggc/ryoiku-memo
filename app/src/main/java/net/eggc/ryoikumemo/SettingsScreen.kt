@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ fun SettingsScreen(
     onLogoutClick: () -> Unit,
     onLoginClick: () -> Unit,
     onTermsClick: () -> Unit,
+    onPrivacyPolicyClick: () -> Unit,
 ) {
     LazyColumn(
         modifier = modifier
@@ -59,20 +61,36 @@ fun SettingsScreen(
         item {
             SettingsSection("アプリ情報") {
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = onTermsClick)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "利用規約",
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null
-                        )
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = onTermsClick).padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "利用規約",
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null
+                            )
+                        }
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = onPrivacyPolicyClick).padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "プライバシーポリシー",
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null
+                            )
+                        }
                     }
                 }
             }
