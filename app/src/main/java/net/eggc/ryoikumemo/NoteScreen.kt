@@ -244,7 +244,6 @@ fun NoteScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 if (info != null) {
                                     Text(text = info.noteName, style = MaterialTheme.typography.titleLarge)
-                                    Text(text = "持ち主: ${info.ownerId}", style = MaterialTheme.typography.bodySmall)
                                 } else {
                                     Text(
                                         text = "参照エラー",
