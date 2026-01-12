@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -53,8 +55,11 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
+
+private val BASE_MONTH = LocalDate.of(2020, 1, 1)
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -66,12 +71,57 @@ fun TimelineScreen(
     onMonthChange: (LocalDate) -> Unit,
     onEditStampClick: (Long) -> Unit
 ) {
+    val initialPage = remember { ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt() }
+    val pagerState = rememberPagerState(initialPage = initialPage) { 1200 } // 100 years
+
+    // Sync pager -> external state
+    LaunchedEffect(pagerState.currentPage) {
+        val month = BASE_MONTH.plusMonths(pagerState.currentPage.toLong())
+        if (!month.isEqual(currentMonth.withDayOfMonth(1))) {
+            onMonthChange(month)
+        }
+    }
+
+    // Sync external state -> pager
+    LaunchedEffect(currentMonth) {
+        val page = ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt()
+        if (pagerState.currentPage != page) {
+            pagerState.animateScrollToPage(page)
+        }
+    }
+
+    Column(modifier = modifier) {
+        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+            val month = BASE_MONTH.plusMonths(page.toLong())
+            TimelineMonthPage(
+                noteRepository = noteRepository,
+                note = note,
+                month = month,
+                onEditStampClick = onEditStampClick
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun TimelineMonthPage(
+    noteRepository: NoteRepository,
+    note: Note,
+    month: LocalDate,
+    onEditStampClick: (Long) -> Unit
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
-    var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
 
     fun refreshTimeline(isSwipeRefresh: Boolean = false) {
         coroutineScope.launch {
@@ -81,7 +131,7 @@ fun TimelineScreen(
                 isLoading = true
             }
             try {
-                timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, currentMonth)
+                timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
             } catch (e: Exception) {
                 Log.e("TimelineScreen", "Failed to load timeline items", e)
                 Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
@@ -92,7 +142,7 @@ fun TimelineScreen(
         }
     }
 
-    LaunchedEffect(note.id, currentMonth) {
+    LaunchedEffect(note.id, month) {
         refreshTimeline()
     }
 
@@ -133,55 +183,51 @@ fun TimelineScreen(
         Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
     }
 
-    Column(modifier = modifier) {
-        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
-
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = { refreshTimeline(isSwipeRefresh = true) },
-                modifier = Modifier.fillMaxSize()
-            ) {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    if (groupedItems.isEmpty()) {
-                        item {
-                            Text(
-                                text = "この月の記録はありません。",
-                                modifier = Modifier.padding(16.dp)
-                            )
-                        }
-                    } else {
-                        groupedItems.forEach { (date, items) ->
-                            stickyHeader {
-                                Surface(
-                                    modifier = Modifier.fillParentMaxWidth(),
-                                    color = MaterialTheme.colorScheme.primaryContainer
-                                ) {
-                                    Text(
-                                        text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                                    )
-                                }
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { refreshTimeline(isSwipeRefresh = true) },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (groupedItems.isEmpty()) {
+                    item {
+                        Text(
+                            text = "この月の記録はありません。",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    groupedItems.forEach { (date, items) ->
+                        stickyHeader {
+                            Surface(
+                                modifier = Modifier.fillParentMaxWidth(),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                                )
                             }
-                            items(items, key = {
-                                "stamp_${it.timestamp}"
-                            }) { item ->
-                                if (item is StampItem) {
-                                    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                        StampHistoryCard(
-                                            timestamp = item.timestamp,
-                                            stampType = item.type,
-                                            note = item.note,
-                                            operatorName = item.operatorName,
-                                            onEditClick = { onEditStampClick(item.timestamp) },
-                                            onDeleteClick = { showDeleteDialogFor = item }
-                                        )
-                                    }
+                        }
+                        items(items, key = {
+                            "stamp_${it.timestamp}"
+                        }) { item ->
+                            if (item is StampItem) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                    StampHistoryCard(
+                                        timestamp = item.timestamp,
+                                        stampType = item.type,
+                                        note = item.note,
+                                        operatorName = item.operatorName,
+                                        onEditClick = { onEditStampClick(item.timestamp) },
+                                        onDeleteClick = { showDeleteDialogFor = item }
+                                    )
                                 }
                             }
                         }

@@ -1,10 +1,14 @@
 package net.eggc.ryoikumemo
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +34,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
+private val BASE_MONTH = LocalDate.of(2020, 1, 1)
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GraphScreen(
     modifier: Modifier = Modifier,
@@ -38,10 +45,52 @@ fun GraphScreen(
     currentMonth: LocalDate,
     onMonthChange: (LocalDate) -> Unit
 ) {
+    val initialPage = remember { ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt() }
+    val pagerState = rememberPagerState(initialPage = initialPage) { 1200 } // 100 years
+
+    // Sync pager -> external state
+    LaunchedEffect(pagerState.currentPage) {
+        val month = BASE_MONTH.plusMonths(pagerState.currentPage.toLong())
+        if (!month.isEqual(currentMonth.withDayOfMonth(1))) {
+            onMonthChange(month)
+        }
+    }
+
+    // Sync external state -> pager
+    LaunchedEffect(currentMonth) {
+        val page = ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt()
+        if (pagerState.currentPage != page) {
+            pagerState.animateScrollToPage(page)
+        }
+    }
+
+    Column(modifier = modifier) {
+        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val month = BASE_MONTH.plusMonths(page.toLong())
+            GraphMonthPage(
+                noteRepository = noteRepository,
+                note = note,
+                month = month
+            )
+        }
+    }
+}
+
+@Composable
+fun GraphMonthPage(
+    noteRepository: NoteRepository,
+    note: Note,
+    month: LocalDate
+) {
     var sleepData by remember { mutableStateOf<Map<Int, List<Pair<Float, Float>>>>(emptyMap()) }
 
-    LaunchedEffect(note.id, currentMonth) {
-        val items = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, currentMonth)
+    LaunchedEffect(note.id, month) {
+        val items = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
         val sleepWakeItems = items.filterIsInstance<StampItem>().filter {
             it.type == StampType.SLEEP || it.type == StampType.WAKE_UP
         }.sortedBy { it.timestamp }
@@ -49,7 +98,7 @@ fun GraphScreen(
         val dailyData = mutableMapOf<Int, MutableList<StampItem>>()
         for (item in sleepWakeItems) {
             val date = Instant.ofEpochMilli(item.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-            if (date.month == currentMonth.month) {
+            if (date.month == month.month && date.year == month.year) {
                 dailyData.getOrPut(date.dayOfMonth) { mutableListOf() }.add(item)
             }
         }
@@ -99,13 +148,12 @@ fun GraphScreen(
     val bottomPadding = 30.dp
     val dayHeight = 48.dp
 
-    Column(modifier = modifier) {
-        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
+    Column(modifier = Modifier.fillMaxSize()) {
         SleepChartHeader(yAxisLabelWidth, rightPadding, headerHeight)
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             SleepChartBody(
                 sleepData = sleepData,
-                month = currentMonth,
+                month = month,
                 yAxisLabelWidth = yAxisLabelWidth,
                 rightPadding = rightPadding,
                 bottomPadding = bottomPadding,
