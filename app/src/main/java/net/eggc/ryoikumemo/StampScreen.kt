@@ -13,13 +13,18 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,11 +56,22 @@ fun StampScreen(
     var hiddenStampTypes by remember { mutableStateOf(appPreferences.getHiddenStampTypes()) }
     var showMemoDialog by remember { mutableStateOf<StampType?>(null) }
     var memoText by remember { mutableStateOf("") }
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val visibleStampTypes = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
 
     if (showMemoDialog != null && note != null) {
         val stampType = showMemoDialog!!
+        var expanded by remember { mutableStateOf(false) }
+
+        // Fetch suggestions only for types that need them (like OUTING)
+        LaunchedEffect(stampType) {
+            if (stampType == StampType.OUTING) {
+                suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id, stampType)
+            } else {
+                suggestions = emptyList()
+            }
+        }
 
         AlertDialog(
             onDismissRequest = { 
@@ -65,14 +81,48 @@ fun StampScreen(
             title = { Text("${stampType.label}の内容を入力") },
             text = {
                 Column {
-                    TextField(
-                        value = memoText,
-                        onValueChange = { if (it.length <= 2048) memoText = it },
-                        label = { Text("詳細") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = false,
-                        minLines = 3
-                    )
+                    if (stampType == StampType.OUTING) {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            TextField(
+                                value = memoText,
+                                onValueChange = { if (it.length <= 2048) memoText = it },
+                                label = { Text("場所・詳細") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable),
+                                singleLine = true
+                            )
+                            if (suggestions.isNotEmpty()) {
+                                ExposedDropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                ) {
+                                    suggestions.forEach { selectionOption ->
+                                        DropdownMenuItem(
+                                            text = { Text(selectionOption) },
+                                            onClick = {
+                                                memoText = selectionOption
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Regular multi-line field for MEMO
+                        TextField(
+                            value = memoText,
+                            onValueChange = { if (it.length <= 2048) memoText = it },
+                            label = { Text("詳細") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = false,
+                            minLines = 3
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -138,7 +188,7 @@ fun StampScreen(
                     modifier = Modifier.padding(8.dp),
                     onClick = {
                         if (!isCustomizing && note != null) {
-                            if (stampType == StampType.MEMO) {
+                            if (stampType == StampType.MEMO || stampType == StampType.OUTING) {
                                 showMemoDialog = stampType
                             } else {
                                 coroutineScope.launch {

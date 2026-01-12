@@ -2,6 +2,7 @@ package net.eggc.ryoikumemo.data
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Hexagon
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Medication
@@ -37,5 +38,6 @@ enum class StampType(val label: String, val icon: ImageVector) {
     TANTRUM("かんしゃく", Icons.Default.LocalFireDepartment),
     POO("うんち", Icons.Filled.Hexagon),
     PEE("おしっこ", Icons.Default.WaterDrop),
+    OUTING("おでかけ", Icons.Default.DirectionsWalk),
     MEMO("メモ", Icons.Default.StickyNote2),
 }
