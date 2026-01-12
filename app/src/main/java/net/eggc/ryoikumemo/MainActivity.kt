@@ -56,6 +56,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
+import net.eggc.ryoikumemo.data.CsvImportManager
 import net.eggc.ryoikumemo.data.FirestoreNoteRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
@@ -100,6 +101,10 @@ fun RyoikumemoApp() {
     val appPreferences = remember { AppPreferences(context) }
 
     var noteToExport by remember { mutableStateOf<Note?>(null) }
+    var noteToImport by remember { mutableStateOf<Note?>(null) }
+
+    // Managers
+    val csvImportManager = remember(noteRepository) { CsvImportManager(context, noteRepository) }
 
     // CSV Export Handling
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -133,6 +138,25 @@ fun RyoikumemoApp() {
             }
         } else {
             noteToExport = null
+        }
+    }
+
+    // CSV Import Handling
+    val importContentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null && noteToImport != null) {
+            coroutineScope.launch {
+                val result = csvImportManager.importCsv(uri, noteToImport!!)
+                result.onSuccess { count ->
+                    Toast.makeText(context, "${count}件のデータをインポートしました", Toast.LENGTH_SHORT).show()
+                }.onFailure { e ->
+                    Toast.makeText(context, "エラーが発生しました: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+                noteToImport = null
+            }
+        } else {
+            noteToImport = null
         }
     }
 
@@ -307,6 +331,10 @@ fun RyoikumemoApp() {
                             noteToExport = note
                             val fileName = "ryoiku_memo_${note.name}.csv"
                             createDocumentLauncher.launch(fileName)
+                        },
+                        onCsvImportClick = { note ->
+                            noteToImport = note
+                            importContentLauncher.launch("text/*")
                         }
                     )
 

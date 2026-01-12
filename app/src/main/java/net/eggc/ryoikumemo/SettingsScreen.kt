@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -51,16 +52,31 @@ fun SettingsScreen(
     onTermsClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit,
     onCsvExportClick: (Note) -> Unit,
+    onCsvImportClick: (Note) -> Unit,
 ) {
     var showExportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
 
     if (showExportDialog) {
-        ExportNoteSelectionDialog(
+        NoteSelectionDialog(
+            title = "エクスポートするノートを選択",
             notes = notes,
             onDismiss = { showExportDialog = false },
             onNoteSelected = {
                 onCsvExportClick(it)
                 showExportDialog = false
+            }
+        )
+    }
+
+    if (showImportDialog) {
+        NoteSelectionDialog(
+            title = "インポート先のノートを選択",
+            notes = notes,
+            onDismiss = { showImportDialog = false },
+            onNoteSelected = {
+                onCsvImportClick(it)
+                showImportDialog = false
             }
         )
     }
@@ -85,17 +101,32 @@ fun SettingsScreen(
         item {
             SettingsSection("一括処理") {
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showExportDialog = true }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.FileDownload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(text = "CSVエクスポート", modifier = Modifier.weight(1f))
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showExportDialog = true }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(text = "CSVエクスポート", modifier = Modifier.weight(1f))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        }
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showImportDialog = true }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(text = "CSVインポート", modifier = Modifier.weight(1f))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        }
                     }
                 }
             }
@@ -146,17 +177,18 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun ExportNoteSelectionDialog(
+private fun NoteSelectionDialog(
+    title: String,
     notes: List<Note>,
     onDismiss: () -> Unit,
     onNoteSelected: (Note) -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("エクスポートするノートを選択") },
+        title = { Text(title) },
         text = {
             if (notes.isEmpty()) {
-                Text("エクスポート可能なノートがありません。")
+                Text("ノートがありません。")
             } else {
                 LazyColumn {
                     items(notes) { note ->
