@@ -17,7 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
@@ -188,7 +188,7 @@ fun RyoikumemoApp() {
                         }
                     )
 
-                    AppDestinations.GRAPH -> GraphScreen(
+                    AppDestinations.REVIEW -> ReviewScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
                         note = currentNote!!,
@@ -258,6 +258,8 @@ fun RyoikumemoApp() {
                         modifier = Modifier.padding(innerPadding),
                         onNavigateUp = { currentDestination = AppDestinations.SETTINGS }
                     )
+
+                    AppDestinations.GRAPH -> {} // Deprecated, merged into Review
                 }
             }
         }
@@ -269,11 +271,12 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
-    GRAPH("グラフ", Icons.Default.Assessment),
     STAMP("スタンプ", Icons.Default.AccessTime),
+    REVIEW("ふりかえり", Icons.Default.AutoStories),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
     EDIT_STAMP("スタンプ編集", null),
     TERMS("利用規約", null),
-    PRIVACY_POLICY("プライバシーポリシー", null)
+    PRIVACY_POLICY("プライバシーポリシー", null),
+    GRAPH("グラフ", null)
 }
