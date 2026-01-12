@@ -239,8 +239,10 @@ fun RyoikumemoApp() {
                                 model = currentUser.photoUrl,
                                 contentDescription = "User profile picture",
                                 modifier = Modifier
+                                    .padding(end = 8.dp)
                                     .size(32.dp)
-                                    .clip(CircleShape),
+                                    .clip(CircleShape)
+                                    .clickable { currentDestination = AppDestinations.SETTINGS },
                                 contentScale = ContentScale.Crop,
                                 error = painterResource(id = R.drawable.ic_launcher_foreground),
                                 placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
