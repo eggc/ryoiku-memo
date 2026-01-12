@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,11 +69,16 @@ fun TimelineScreen(
     var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var currentMonth by remember { mutableStateOf(LocalDate.now()) }
 
-    fun refreshTimeline() {
+    fun refreshTimeline(isSwipeRefresh: Boolean = false) {
         coroutineScope.launch {
-            isLoading = true
+            if (isSwipeRefresh) {
+                isRefreshing = true
+            } else {
+                isLoading = true
+            }
             try {
                 timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, currentMonth)
             } catch (e: Exception) {
@@ -80,6 +86,7 @@ fun TimelineScreen(
                 Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
             } finally {
                 isLoading = false
+                isRefreshing = false
             }
         }
     }
@@ -133,41 +140,47 @@ fun TimelineScreen(
                 CircularProgressIndicator()
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                if (groupedItems.isEmpty()) {
-                    item {
-                        Text(
-                            text = "この月の記録はありません。",
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                } else {
-                    groupedItems.forEach { (date, items) ->
-                        stickyHeader {
-                            Surface(
-                                modifier = Modifier.fillParentMaxWidth(),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                                )
-                            }
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { refreshTimeline(isSwipeRefresh = true) },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (groupedItems.isEmpty()) {
+                        item {
+                            Text(
+                                text = "この月の記録はありません。",
+                                modifier = Modifier.padding(16.dp)
+                            )
                         }
-                        items(items, key = {
-                            "stamp_${it.timestamp}"
-                        }) { item ->
-                            if (item is StampItem) {
-                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                    StampHistoryCard(
-                                        timestamp = item.timestamp,
-                                        stampType = item.type,
-                                        note = item.note,
-                                        operatorName = item.operatorName,
-                                        onEditClick = { onEditStampClick(item.timestamp) },
-                                        onDeleteClick = { showDeleteDialogFor = item }
+                    } else {
+                        groupedItems.forEach { (date, items) ->
+                            stickyHeader {
+                                Surface(
+                                    modifier = Modifier.fillParentMaxWidth(),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                                     )
+                                }
+                            }
+                            items(items, key = {
+                                "stamp_${it.timestamp}"
+                            }) { item ->
+                                if (item is StampItem) {
+                                    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                        StampHistoryCard(
+                                            timestamp = item.timestamp,
+                                            stampType = item.type,
+                                            note = item.note,
+                                            operatorName = item.operatorName,
+                                            onEditClick = { onEditStampClick(item.timestamp) },
+                                            onDeleteClick = { showDeleteDialogFor = item }
+                                        )
+                                    }
                                 }
                             }
                         }
