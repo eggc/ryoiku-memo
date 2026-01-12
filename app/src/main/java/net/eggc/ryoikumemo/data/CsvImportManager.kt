@@ -32,7 +32,7 @@ class CsvImportManager(
                 throw Exception("ファイルが空か、データがありません")
             }
 
-            var count = 0
+            val stampsToSave = mutableListOf<StampItem>()
             lines.forEach { line ->
                 val parts = line.split(",", limit = 4)
                 if (parts.size >= 2) {
@@ -48,21 +48,27 @@ class CsvImportManager(
                                 .toInstant()
                                 .toEpochMilli()
 
-                            noteRepository.saveStamp(
-                                ownerId = targetNote.ownerId,
-                                noteId = targetNote.id,
-                                stampType = stampType,
-                                note = memo,
-                                timestamp = timestamp
+                            stampsToSave.add(
+                                StampItem(
+                                    timestamp = timestamp,
+                                    type = stampType,
+                                    note = memo,
+                                    operatorName = null // Will be handled by repository (e.g. current user)
+                                )
                             )
-                            count++
                         } catch (e: Exception) {
                             // Skip invalid date formats
                         }
                     }
                 }
             }
-            count
+
+            // 100件ずつのチャンクに分けて一括保存を実行
+            stampsToSave.chunked(100).forEach { chunk ->
+                noteRepository.saveStamps(targetNote.ownerId, targetNote.id, chunk)
+            }
+
+            stampsToSave.size
         }
     }
 }

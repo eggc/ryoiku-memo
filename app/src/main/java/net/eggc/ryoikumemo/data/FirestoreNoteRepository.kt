@@ -193,6 +193,29 @@ class FirestoreNoteRepository : NoteRepository {
         timelineCollection(ownerId, noteId).document(timestamp.toString()).set(stampMap).await()
     }
 
+    override suspend fun saveStamps(ownerId: String, noteId: String, stamps: List<StampItem>) {
+        if (stamps.isEmpty()) return
+        
+        val timeline = timelineCollection(ownerId, noteId)
+        val operatorName = Firebase.auth.currentUser?.displayName
+        
+        // Firestore batch has a limit of 500 operations
+        stamps.chunked(500).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { stamp ->
+                val stampMap = hashMapOf(
+                    "itemType" to "stamp",
+                    "timestamp" to stamp.timestamp,
+                    "type" to stamp.type.name,
+                    "note" to stamp.note,
+                    "operatorName" to operatorName
+                )
+                batch.set(timeline.document(stamp.timestamp.toString()), stampMap)
+            }
+            batch.commit().await()
+        }
+    }
+
     override suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem) {
         if (item is StampItem) {
             timelineCollection(ownerId, noteId).document(item.timestamp.toString()).delete().await()

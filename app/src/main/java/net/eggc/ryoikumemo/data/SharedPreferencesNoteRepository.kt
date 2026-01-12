@@ -85,6 +85,16 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         }
     }
 
+    override suspend fun saveStamps(ownerId: String, noteId: String, stamps: List<StampItem>) {
+        val prefs = stampPrefs(noteId)
+        with(prefs.edit()) {
+            stamps.forEach { item ->
+                putString(item.timestamp.toString(), "${item.type.name}|${item.note}")
+            }
+            apply()
+        }
+    }
+
     override suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem) {
         if (item is StampItem) {
             with(stampPrefs(noteId).edit()) {

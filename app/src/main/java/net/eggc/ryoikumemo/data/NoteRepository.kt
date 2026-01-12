@@ -23,6 +23,7 @@ interface NoteRepository {
     suspend fun getStampNoteSuggestions(ownerId: String, noteId: String, type: StampType): List<String>
 
     suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun saveStamps(ownerId: String, noteId: String, stamps: List<StampItem>)
     suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem)
 
     suspend fun subscribeToSharedNote(sharedId: String)
