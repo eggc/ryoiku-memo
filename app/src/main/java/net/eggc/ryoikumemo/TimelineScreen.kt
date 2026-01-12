@@ -62,6 +62,8 @@ fun TimelineScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
     note: Note,
+    currentMonth: LocalDate,
+    onMonthChange: (LocalDate) -> Unit,
     onEditStampClick: (Long) -> Unit
 ) {
     val context = LocalContext.current
@@ -70,7 +72,6 @@ fun TimelineScreen(
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
-    var currentMonth by remember { mutableStateOf(LocalDate.now()) }
 
     fun refreshTimeline(isSwipeRefresh: Boolean = false) {
         coroutineScope.launch {
@@ -133,7 +134,7 @@ fun TimelineScreen(
     }
 
     Column(modifier = modifier) {
-        MonthSelector(currentMonth = currentMonth, onMonthChange = { currentMonth = it })
+        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

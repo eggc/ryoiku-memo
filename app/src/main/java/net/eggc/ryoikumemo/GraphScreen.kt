@@ -34,9 +34,10 @@ import java.time.temporal.ChronoUnit
 fun GraphScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
-    note: Note
+    note: Note,
+    currentMonth: LocalDate,
+    onMonthChange: (LocalDate) -> Unit
 ) {
-    var currentMonth by remember { mutableStateOf(LocalDate.now()) }
     var sleepData by remember { mutableStateOf<Map<Int, List<Pair<Float, Float>>>>(emptyMap()) }
 
     LaunchedEffect(note.id, currentMonth) {
@@ -99,7 +100,7 @@ fun GraphScreen(
     val dayHeight = 48.dp
 
     Column(modifier = modifier) {
-        MonthSelector(currentMonth = currentMonth, onMonthChange = { currentMonth = it })
+        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
         SleepChartHeader(yAxisLabelWidth, rightPadding, headerHeight)
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             SleepChartBody(

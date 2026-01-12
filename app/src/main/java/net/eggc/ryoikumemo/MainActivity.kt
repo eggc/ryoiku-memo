@@ -57,6 +57,7 @@ import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
+import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,6 +88,7 @@ fun RyoikumemoApp() {
         }
     }
     var currentNote by remember { mutableStateOf<Note?>(null) }
+    var selectedMonth by remember { mutableStateOf(LocalDate.now()) }
     val appPreferences = remember { AppPreferences(context) }
 
     LaunchedEffect(noteRepository) {
@@ -178,6 +180,8 @@ fun RyoikumemoApp() {
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
                         note = currentNote!!,
+                        currentMonth = selectedMonth,
+                        onMonthChange = { selectedMonth = it },
                         onEditStampClick = { stampId ->
                             editingStampId = stampId
                             currentDestination = AppDestinations.EDIT_STAMP
@@ -187,7 +191,9 @@ fun RyoikumemoApp() {
                     AppDestinations.GRAPH -> GraphScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
-                        note = currentNote!!
+                        note = currentNote!!,
+                        currentMonth = selectedMonth,
+                        onMonthChange = { selectedMonth = it }
                     )
 
                     AppDestinations.STAMP -> StampScreen(
