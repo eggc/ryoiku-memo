@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +40,7 @@ import net.eggc.ryoikumemo.data.StampType
 fun StampScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
-    note: Note,
+    note: Note?,
     onStampSaved: () -> Unit
 ) {
     val context = LocalContext.current
@@ -46,8 +49,59 @@ fun StampScreen(
 
     var isCustomizing by remember { mutableStateOf(false) }
     var hiddenStampTypes by remember { mutableStateOf(appPreferences.getHiddenStampTypes()) }
+    var showMemoDialog by remember { mutableStateOf<StampType?>(null) }
+    var memoText by remember { mutableStateOf("") }
 
     val visibleStampTypes = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
+
+    if (showMemoDialog != null && note != null) {
+        val stampType = showMemoDialog!!
+
+        AlertDialog(
+            onDismissRequest = { 
+                showMemoDialog = null
+                memoText = ""
+            },
+            title = { Text("${stampType.label}の内容を入力") },
+            text = {
+                Column {
+                    TextField(
+                        value = memoText,
+                        onValueChange = { if (it.length <= 2048) memoText = it },
+                        label = { Text("詳細") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        minLines = 3
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            noteRepository.saveStamp(note.ownerId, note.id, stampType, memoText)
+                            Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                            showMemoDialog = null
+                            memoText = ""
+                            onStampSaved()
+                        }
+                    }
+                ) {
+                    Text("保存")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showMemoDialog = null
+                        memoText = ""
+                    }
+                ) {
+                    Text("キャンセル")
+                }
+            }
+        )
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -83,11 +137,15 @@ fun StampScreen(
                 Card(
                     modifier = Modifier.padding(8.dp),
                     onClick = {
-                        if (!isCustomizing) {
-                            coroutineScope.launch {
-                                noteRepository.saveStamp(note.ownerId, note.id, stampType, "")
-                                Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
-                                onStampSaved()
+                        if (!isCustomizing && note != null) {
+                            if (stampType == StampType.MEMO) {
+                                showMemoDialog = stampType
+                            } else {
+                                coroutineScope.launch {
+                                    noteRepository.saveStamp(note.ownerId, note.id, stampType, "")
+                                    Toast.makeText(context, "${stampType.label}を記録しました", Toast.LENGTH_SHORT).show()
+                                    onStampSaved()
+                                }
                             }
                         }
                     }
