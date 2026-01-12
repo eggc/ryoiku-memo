@@ -3,6 +3,7 @@ package net.eggc.ryoikumemo
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -26,6 +28,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,6 +78,8 @@ fun TimelineScreen(
 ) {
     val initialPage = remember { ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt() }
     val pagerState = rememberPagerState(initialPage = initialPage) { 1200 } // 100 years
+    var showJumpDatePicker by remember { mutableStateOf(false) }
+    var targetDate by remember { mutableStateOf<LocalDate?>(null) }
 
     // Sync pager -> external state
     LaunchedEffect(pagerState.currentPage) {
@@ -90,8 +97,40 @@ fun TimelineScreen(
         }
     }
 
+    if (showJumpDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = currentMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showJumpDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                        targetDate = selectedDate
+                        onMonthChange(selectedDate)
+                        showJumpDatePicker = false
+                    }
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showJumpDatePicker = false }) {
+                    Text("キャンセル")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     Column(modifier = modifier) {
-        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
+        MonthSelector(
+            currentMonth = currentMonth,
+            onMonthChange = onMonthChange,
+            onMonthClick = { showJumpDatePicker = true }
+        )
 
         HorizontalPager(
             state = pagerState,
@@ -102,7 +141,10 @@ fun TimelineScreen(
                 noteRepository = noteRepository,
                 note = note,
                 month = month,
-                onEditStampClick = onEditStampClick
+                targetDate = if (targetDate?.year == month.year && targetDate?.month == month.month) targetDate else null,
+                onTargetDateScrolled = { targetDate = null },
+                onEditStampClick = { onEditStampClick(it) },
+                onDateClick = { showJumpDatePicker = true }
             )
         }
     }
@@ -114,7 +156,10 @@ fun TimelineMonthPage(
     noteRepository: NoteRepository,
     note: Note,
     month: LocalDate,
-    onEditStampClick: (Long) -> Unit
+    targetDate: LocalDate?,
+    onTargetDateScrolled: () -> Unit,
+    onEditStampClick: (Long) -> Unit,
+    onDateClick: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -122,6 +167,7 @@ fun TimelineMonthPage(
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
+    val listState = rememberLazyListState()
 
     fun refreshTimeline(isSwipeRefresh: Boolean = false) {
         coroutineScope.launch {
@@ -144,6 +190,31 @@ fun TimelineMonthPage(
 
     LaunchedEffect(note.id, month) {
         refreshTimeline()
+    }
+
+    val groupedItems = remember(timelineItems) {
+        timelineItems.groupBy {
+            Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+        }
+    }
+
+    // Handle jump to specific date within the month
+    LaunchedEffect(targetDate, isLoading) {
+        if (targetDate != null && !isLoading && groupedItems.isNotEmpty()) {
+            val availableDates = groupedItems.keys.sortedDescending()
+            // Find the exact date or the first date that is before the target date
+            val jumpToDate = availableDates.firstOrNull { it <= targetDate } ?: availableDates.last()
+            
+            // Calculate index in LazyColumn
+            var index = 0
+            for (date in availableDates) {
+                if (date == jumpToDate) break
+                index += 1 + (groupedItems[date]?.size ?: 0)
+            }
+            
+            listState.animateScrollToItem(index)
+            onTargetDateScrolled()
+        }
     }
 
     if (showDeleteDialogFor != null) {
@@ -179,10 +250,6 @@ fun TimelineMonthPage(
         )
     }
 
-    val groupedItems = timelineItems.groupBy {
-        Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-    }
-
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -193,7 +260,10 @@ fun TimelineMonthPage(
             onRefresh = { refreshTimeline(isSwipeRefresh = true) },
             modifier = Modifier.fillMaxSize()
         ) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState
+            ) {
                 if (groupedItems.isEmpty()) {
                     item {
                         Text(
@@ -203,9 +273,11 @@ fun TimelineMonthPage(
                     }
                 } else {
                     groupedItems.forEach { (date, items) ->
-                        stickyHeader {
+                        stickyHeader(key = "header_${date}") {
                             Surface(
-                                modifier = Modifier.fillParentMaxWidth(),
+                                modifier = Modifier
+                                    .fillParentMaxWidth()
+                                    .clickable { onDateClick() },
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
@@ -239,7 +311,7 @@ fun TimelineMonthPage(
 }
 
 @Composable
-fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit) {
+fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit, onMonthClick: () -> Unit = {}) {
     val formatter = DateTimeFormatter.ofPattern("yyyy年 M月")
 
     Row(
@@ -254,7 +326,8 @@ fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit) {
         }
         Text(
             text = currentMonth.format(formatter),
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.clickable { onMonthClick() }
         )
         IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "次の月")
