@@ -15,7 +15,7 @@ class CsvImportManager(
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
     suspend fun importCsv(uri: Uri, targetNote: Note): Result<Int> {
-        return runCatching {
+        return try {
             val lines = mutableListOf<String>()
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 BufferedReader(InputStreamReader(inputStream)).use { reader ->
@@ -29,7 +29,7 @@ class CsvImportManager(
             }
 
             if (lines.isEmpty()) {
-                throw Exception("ファイルが空か、データがありません")
+                return Result.failure(Exception("ファイルが空か、データがありません"))
             }
 
             val stampsToSave = mutableListOf<StampItem>()
@@ -53,7 +53,7 @@ class CsvImportManager(
                                     timestamp = timestamp,
                                     type = stampType,
                                     note = memo,
-                                    operatorName = null // Will be handled by repository (e.g. current user)
+                                    operatorName = null
                                 )
                             )
                         } catch (e: Exception) {
@@ -68,7 +68,9 @@ class CsvImportManager(
                 noteRepository.saveStamps(targetNote.ownerId, targetNote.id, chunk)
             }
 
-            stampsToSave.size
+            Result.success(stampsToSave.size)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

@@ -61,6 +61,7 @@ import net.eggc.ryoikumemo.data.FirestoreNoteRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
+import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.time.Instant
 import java.time.LocalDate
@@ -97,6 +98,7 @@ fun RyoikumemoApp() {
     }
     var currentNote by remember { mutableStateOf<Note?>(null) }
     var allNotes by remember { mutableStateOf<List<Note>>(emptyList()) }
+    var refreshNotesTrigger by remember { mutableStateOf(0) }
     var selectedMonth by remember { mutableStateOf(LocalDate.now()) }
     val appPreferences = remember { AppPreferences(context) }
 
@@ -160,7 +162,7 @@ fun RyoikumemoApp() {
         }
     }
 
-    LaunchedEffect(noteRepository, currentUser) {
+    LaunchedEffect(noteRepository, currentUser, refreshNotesTrigger) {
         coroutineScope.launch {
             // Load all notes (including shared ones)
             val notes = noteRepository.getNotes().toMutableList()
@@ -306,6 +308,9 @@ fun RyoikumemoApp() {
                         onNoteUpdated = { updatedNote ->
                             currentNote = updatedNote
                             appPreferences.saveLastSelectedNote(updatedNote)
+                        },
+                        onNotesChanged = {
+                            refreshNotesTrigger++
                         }
                     )
 
@@ -335,6 +340,9 @@ fun RyoikumemoApp() {
                         onCsvImportClick = { note ->
                             noteToImport = note
                             importContentLauncher.launch("text/*")
+                        },
+                        onRefreshNotes = {
+                            refreshNotesTrigger++
                         }
                     )
 

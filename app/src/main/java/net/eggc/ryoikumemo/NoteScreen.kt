@@ -60,6 +60,7 @@ fun NoteScreen(
     onNoteSelected: (Note) -> Unit,
     currentNoteId: String,
     onNoteUpdated: (Note) -> Unit,
+    onNotesChanged: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
@@ -79,6 +80,7 @@ fun NoteScreen(
                     it to noteRepository.getNoteBySharedId(it)
                 }
             }
+            onNotesChanged()
         }
     }
 

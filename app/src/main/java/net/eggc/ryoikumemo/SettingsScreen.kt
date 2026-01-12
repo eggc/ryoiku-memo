@@ -53,6 +53,7 @@ fun SettingsScreen(
     onPrivacyPolicyClick: () -> Unit,
     onCsvExportClick: (Note) -> Unit,
     onCsvImportClick: (Note) -> Unit,
+    onRefreshNotes: () -> Unit,
 ) {
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
@@ -105,7 +106,10 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showExportDialog = true }
+                                .clickable {
+                                    onRefreshNotes()
+                                    showExportDialog = true
+                                }
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -118,7 +122,10 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showImportDialog = true }
+                                .clickable {
+                                    onRefreshNotes()
+                                    showImportDialog = true
+                                }
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
