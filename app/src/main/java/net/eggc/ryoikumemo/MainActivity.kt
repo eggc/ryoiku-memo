@@ -56,6 +56,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
+import net.eggc.ryoikumemo.data.CsvExportManager
 import net.eggc.ryoikumemo.data.CsvImportManager
 import net.eggc.ryoikumemo.data.FirestoreNoteRepository
 import net.eggc.ryoikumemo.data.Note
@@ -107,6 +108,7 @@ fun RyoikumemoApp() {
 
     // Managers
     val csvImportManager = remember(noteRepository) { CsvImportManager(context, noteRepository) }
+    val csvExportManager = remember(noteRepository) { CsvExportManager(context, noteRepository) }
 
     // CSV Export Handling
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -114,29 +116,14 @@ fun RyoikumemoApp() {
     ) { uri: Uri? ->
         if (uri != null && noteToExport != null) {
             coroutineScope.launch {
-                try {
-                    val stamps = noteRepository.getAllStampItems(noteToExport!!.ownerId, noteToExport!!.id)
-                    val csvContent = buildString {
-                        append("日時,種類,メモ,操作者\n")
-                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                            .withZone(ZoneId.systemDefault())
-                        stamps.forEach { stamp ->
-                            val dateStr = formatter.format(Instant.ofEpochMilli(stamp.timestamp))
-                            val typeStr = stamp.type.label
-                            val noteStr = stamp.note.replace("\n", " ").replace(",", " ")
-                            val operatorStr = stamp.operatorName ?: ""
-                            append("$dateStr,$typeStr,$noteStr,$operatorStr\n")
-                        }
-                    }
-                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                        outputStream.write(csvContent.toByteArray())
-                    }
+                val result = csvExportManager.exportCsv(uri, noteToExport!!)
+                if (result.isSuccess) {
                     Toast.makeText(context, "エクスポートが完了しました", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Toast.makeText(context, "エラーが発生しました: ${e.message}", Toast.LENGTH_LONG).show()
-                } finally {
-                    noteToExport = null
+                } else {
+                    val error = result.exceptionOrNull()
+                    Toast.makeText(context, "エラーが発生しました: ${error?.message}", Toast.LENGTH_LONG).show()
                 }
+                noteToExport = null
             }
         } else {
             noteToExport = null
@@ -150,10 +137,12 @@ fun RyoikumemoApp() {
         if (uri != null && noteToImport != null) {
             coroutineScope.launch {
                 val result = csvImportManager.importCsv(uri, noteToImport!!)
-                result.onSuccess { count ->
+                if (result.isSuccess) {
+                    val count = result.getOrNull() ?: 0
                     Toast.makeText(context, "${count}件のデータをインポートしました", Toast.LENGTH_SHORT).show()
-                }.onFailure { e ->
-                    Toast.makeText(context, "エラーが発生しました: ${e.message}", Toast.LENGTH_LONG).show()
+                } else {
+                    val error = result.exceptionOrNull()
+                    Toast.makeText(context, "エラーが発生しました: ${error?.message}", Toast.LENGTH_LONG).show()
                 }
                 noteToImport = null
             }
@@ -164,29 +153,33 @@ fun RyoikumemoApp() {
 
     LaunchedEffect(noteRepository, currentUser, refreshNotesTrigger) {
         coroutineScope.launch {
-            // Load all notes (including shared ones)
-            val notes = noteRepository.getNotes().toMutableList()
-            if (currentUser != null) {
-                val subscribedIds = noteRepository.getSubscribedNoteIds()
-                subscribedIds.forEach { id ->
-                    noteRepository.getNoteBySharedId(id)?.let { info ->
-                        notes.add(Note(info.noteId, info.noteName, id, info.ownerId))
-                    }
-                }
-            }
-            allNotes = notes
+            // Load own notes only to reduce API calls
+            val ownNotes = noteRepository.getNotes()
+            allNotes = ownNotes
+
+            // For current note validation, we only need own notes or subscribed IDs (1 API call)
+            val subscribedIds = if (currentUser != null) noteRepository.getSubscribedNoteIds() else emptyList()
 
             // Try to load the last selected note from preferences
             val lastNote = appPreferences.getLastSelectedNote()
-            if (lastNote != null && notes.any { it.id == lastNote.id }) {
-                currentNote = lastNote
-            } else {
-                if (notes.isNotEmpty()) {
-                    currentNote = notes.first()
+            if (lastNote != null) {
+                // Validate if the note is still accessible (owned or subscribed)
+                val isValid = if (lastNote.sharedId == null) {
+                    ownNotes.any { it.id == lastNote.id }
                 } else {
-                    currentNote = noteRepository.createNote("ノート1")
-                    allNotes = listOf(currentNote!!)
+                    subscribedIds.contains(lastNote.sharedId)
                 }
+
+                if (isValid) {
+                    currentNote = lastNote
+                } else {
+                    currentNote = ownNotes.firstOrNull() ?: noteRepository.createNote("ノート1")
+                    if (ownNotes.isEmpty()) allNotes = listOf(currentNote!!)
+                    currentNote?.let { appPreferences.saveLastSelectedNote(it) }
+                }
+            } else {
+                currentNote = ownNotes.firstOrNull() ?: noteRepository.createNote("ノート1")
+                if (ownNotes.isEmpty()) allNotes = listOf(currentNote!!)
                 currentNote?.let { appPreferences.saveLastSelectedNote(it) }
             }
         }
