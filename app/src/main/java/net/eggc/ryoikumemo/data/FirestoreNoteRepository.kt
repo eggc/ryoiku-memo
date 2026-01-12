@@ -7,6 +7,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
@@ -19,6 +22,30 @@ class FirestoreNoteRepository : NoteRepository {
     private val userDocRef = db.collection("users").document(userId)
     private val notesCollection = userDocRef.collection("notes")
     private val sharedNotesCollection = db.collection("sharedNotes")
+
+    override fun getNotesFlow(): Flow<List<Note>> = callbackFlow {
+        val subscription = notesCollection.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            val isFromCache = snapshot?.metadata?.isFromCache == true
+            Log.d(tag, "getNotesFlow: isFromCache = $isFromCache")
+
+            val notes = snapshot?.documents?.mapNotNull { doc ->
+                doc.getString("name")?.let { name ->
+                    Note(
+                        id = doc.id,
+                        name = name,
+                        sharedId = doc.getString("sharedId"),
+                        ownerId = userId
+                    )
+                }
+            } ?: emptyList()
+            trySend(notes)
+        }
+        awaitClose { subscription.remove() }
+    }
 
     override suspend fun getNotes(): List<Note> {
         Log.d(tag, "API CALL: getNotes()")
@@ -110,6 +137,42 @@ class FirestoreNoteRepository : NoteRepository {
 
     private fun timelineCollection(ownerId: String, noteId: String) =
         db.collection("users").document(ownerId).collection("notes").document(noteId).collection("timeline")
+
+    override fun getTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>> = callbackFlow {
+        val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
+        val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
+
+        val startTimestamp = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTimestamp = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val query = timelineCollection(ownerId, noteId)
+            .whereGreaterThanOrEqualTo("timestamp", startTimestamp)
+            .whereLessThan("timestamp", endTimestamp)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+
+        val subscription = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            val isFromCache = snapshot?.metadata?.isFromCache == true
+            Log.d(tag, "getTimelineItemsForMonthFlow: isFromCache = $isFromCache")
+
+            val items = snapshot?.documents?.mapNotNull { doc ->
+                when (doc.getString("itemType")) {
+                    "stamp" -> StampItem(
+                        timestamp = doc.getLong("timestamp")!!,
+                        type = StampType.valueOf(doc.getString("type")!!),
+                        note = doc.getString("note")!!,
+                        operatorName = doc.getString("operatorName")
+                    )
+                    else -> null
+                }
+            } ?: emptyList()
+            trySend(items)
+        }
+        awaitClose { subscription.remove() }
+    }
 
     override suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, sharedId: String?, dateInMonth: LocalDate): List<TimelineItem> {
         Log.d(tag, "API CALL: getTimelineItemsForMonth(noteId: $noteId, month: ${dateInMonth.month})")

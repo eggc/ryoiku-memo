@@ -1,6 +1,8 @@
 package net.eggc.ryoikumemo.data
 
 import android.content.Context
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import java.time.LocalDate
 import java.util.UUID
 
@@ -9,6 +11,10 @@ private const val LOCAL_USER_ID = "local_user"
 class SharedPreferencesNoteRepository(private val context: Context) : NoteRepository {
 
     private val notesPrefs = context.getSharedPreferences("notes_prefs", Context.MODE_PRIVATE)
+
+    override fun getNotesFlow(): Flow<List<Note>> = flow {
+        emit(getNotes())
+    }
 
     override suspend fun getNotes(): List<Note> {
         return notesPrefs.all.map { (id, name) -> Note(id, name as String, null, LOCAL_USER_ID) }
@@ -30,6 +36,14 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
     }
 
     private fun stampPrefs(noteId: String) = context.getSharedPreferences("stamp_prefs_$noteId", Context.MODE_PRIVATE)
+
+    override fun getTimelineItemsForMonthFlow(
+        ownerId: String,
+        noteId: String,
+        dateInMonth: LocalDate
+    ): Flow<List<TimelineItem>> = flow {
+        emit(getTimelineItemsForMonth(ownerId, noteId, null, dateInMonth))
+    }
 
     override suspend fun getTimelineItemsForMonth(
         ownerId: String,

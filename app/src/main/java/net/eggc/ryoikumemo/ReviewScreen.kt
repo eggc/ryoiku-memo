@@ -30,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -139,8 +140,11 @@ fun DiaryView(
     note: Note,
     month: LocalDate
 ) {
-    var diaryData by remember { mutableStateOf<Map<Int, List<StampItem>>>(emptyMap()) }
-    var isLoading by remember { mutableStateOf(true) }
+    // addSnapshotListener を利用した Flow に変更
+    val timelineItems by remember(note.id, month) {
+        noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
+    }.collectAsState(initial = null)
+
     var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
 
     val filterOptions = listOf(
@@ -150,17 +154,13 @@ fun DiaryView(
         StampType.TANTRUM
     )
 
-    LaunchedEffect(note.id, month) {
-        isLoading = true
-        val items = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
-        val grouped = items.filterIsInstance<StampItem>()
-            .filter { it.note.isNotBlank() }
-            .sortedBy { it.timestamp }
-            .groupBy {
+    val diaryData = remember(timelineItems) {
+        timelineItems?.filterIsInstance<StampItem>()
+            ?.filter { it.note.isNotBlank() }
+            ?.sortedBy { it.timestamp }
+            ?.groupBy {
                 Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate().dayOfMonth
-            }
-        diaryData = grouped
-        isLoading = false
+            } ?: emptyMap()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -200,7 +200,7 @@ fun DiaryView(
             }
         }
 
-        if (isLoading) {
+        if (timelineItems == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

@@ -2,6 +2,7 @@ package net.eggc.ryoikumemo
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,13 +12,14 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -87,10 +89,13 @@ fun GraphMonthPage(
     note: Note,
     month: LocalDate
 ) {
-    var sleepData by remember { mutableStateOf<Map<Int, List<Pair<Float, Float>>>>(emptyMap()) }
+    // addSnapshotListener を利用した Flow に変更
+    val timelineItems by remember(note.id, month) {
+        noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
+    }.collectAsState(initial = null)
 
-    LaunchedEffect(note.id, month) {
-        val items = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
+    val sleepData = remember(timelineItems) {
+        val items = timelineItems ?: emptyList()
         val sleepWakeItems = items.filterIsInstance<StampItem>().filter {
             it.type == StampType.SLEEP || it.type == StampType.WAKE_UP
         }.sortedBy { it.timestamp }
@@ -139,7 +144,7 @@ fun GraphMonthPage(
             }
             processedData[day] = intervals
         }
-        sleepData = processedData
+        processedData
     }
 
     val yAxisLabelWidth = 30.dp
@@ -148,17 +153,23 @@ fun GraphMonthPage(
     val bottomPadding = 30.dp
     val dayHeight = 48.dp
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        SleepChartHeader(yAxisLabelWidth, rightPadding, headerHeight)
-        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            SleepChartBody(
-                sleepData = sleepData,
-                month = month,
-                yAxisLabelWidth = yAxisLabelWidth,
-                rightPadding = rightPadding,
-                bottomPadding = bottomPadding,
-                dayHeight = dayHeight
-            )
+    if (timelineItems == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxSize()) {
+            SleepChartHeader(yAxisLabelWidth, rightPadding, headerHeight)
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                SleepChartBody(
+                    sleepData = sleepData,
+                    month = month,
+                    yAxisLabelWidth = yAxisLabelWidth,
+                    rightPadding = rightPadding,
+                    bottomPadding = bottomPadding,
+                    dayHeight = dayHeight
+                )
+            }
         }
     }
 }

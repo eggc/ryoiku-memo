@@ -41,6 +41,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -163,49 +164,27 @@ fun TimelineMonthPage(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    var timelineItems by remember { mutableStateOf<List<TimelineItem>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isRefreshing by remember { mutableStateOf(false) }
+    
+    // addSnapshotListener を利用した Flow に変更
+    val timelineItems by remember(note.id, month) {
+        noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
+    }.collectAsState(initial = null)
+
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     val listState = rememberLazyListState()
 
-    fun refreshTimeline(isSwipeRefresh: Boolean = false) {
-        coroutineScope.launch {
-            if (isSwipeRefresh) {
-                isRefreshing = true
-            } else {
-                isLoading = true
-            }
-            try {
-                timelineItems = noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
-            } catch (e: Exception) {
-                Log.e("TimelineScreen", "Failed to load timeline items", e)
-                Toast.makeText(context, "データの読み込みに失敗しました", Toast.LENGTH_SHORT).show()
-            } finally {
-                isLoading = false
-                isRefreshing = false
-            }
-        }
-    }
-
-    LaunchedEffect(note.id, month) {
-        refreshTimeline()
-    }
-
     val groupedItems = remember(timelineItems) {
-        timelineItems.groupBy {
+        timelineItems?.groupBy {
             Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-        }
+        } ?: emptyMap()
     }
 
     // Handle jump to specific date within the month
-    LaunchedEffect(targetDate, isLoading) {
-        if (targetDate != null && !isLoading && groupedItems.isNotEmpty()) {
+    LaunchedEffect(targetDate, timelineItems) {
+        if (targetDate != null && timelineItems != null && groupedItems.isNotEmpty()) {
             val availableDates = groupedItems.keys.sortedDescending()
-            // Find the exact date or the first date that is before the target date
             val jumpToDate = availableDates.firstOrNull { it <= targetDate } ?: availableDates.last()
             
-            // Calculate index in LazyColumn
             var index = 0
             for (date in availableDates) {
                 if (date == jumpToDate) break
@@ -229,7 +208,6 @@ fun TimelineMonthPage(
                         coroutineScope.launch {
                             try {
                                 noteRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
-                                refreshTimeline()
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
@@ -250,57 +228,53 @@ fun TimelineMonthPage(
         )
     }
 
-    if (isLoading) {
+    if (timelineItems == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     } else {
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { refreshTimeline(isSwipeRefresh = true) },
-            modifier = Modifier.fillMaxSize()
+        // addSnapshotListener でリアルタイム更新されるため、手動 Pull-to-refresh は不要になりますが、
+        // UIの一貫性のために残すか、削除するか選べます。ここでは簡略化のため PullToRefreshBox は維持せず表示のみにします。
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState
-            ) {
-                if (groupedItems.isEmpty()) {
-                    item {
-                        Text(
-                            text = "この月の記録はありません。",
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                } else {
-                    groupedItems.forEach { (date, items) ->
-                        stickyHeader(key = "header_${date}") {
-                            Surface(
-                                modifier = Modifier
-                                    .fillParentMaxWidth()
-                                    .clickable { onDateClick() },
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                                )
-                            }
+            if (groupedItems.isEmpty()) {
+                item {
+                    Text(
+                        text = "この月の記録はありません。",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                groupedItems.forEach { (date, items) ->
+                    stickyHeader(key = "header_${date}") {
+                        Surface(
+                            modifier = Modifier
+                                .fillParentMaxWidth()
+                                .clickable { onDateClick() },
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                            )
                         }
-                        items(items, key = {
-                            "stamp_${it.timestamp}"
-                        }) { item ->
-                            if (item is StampItem) {
-                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                    StampHistoryCard(
-                                        timestamp = item.timestamp,
-                                        stampType = item.type,
-                                        note = item.note,
-                                        operatorName = item.operatorName,
-                                        onEditClick = { onEditStampClick(item.timestamp) },
-                                        onDeleteClick = { showDeleteDialogFor = item }
-                                    )
-                                }
+                    }
+                    items(items, key = {
+                        "stamp_${it.timestamp}"
+                    }) { item ->
+                        if (item is StampItem) {
+                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                StampHistoryCard(
+                                    timestamp = item.timestamp,
+                                    stampType = item.type,
+                                    note = item.note,
+                                    operatorName = item.operatorName,
+                                    onEditClick = { onEditStampClick(item.timestamp) },
+                                    onDeleteClick = { showDeleteDialogFor = item }
+                                )
                             }
                         }
                     }

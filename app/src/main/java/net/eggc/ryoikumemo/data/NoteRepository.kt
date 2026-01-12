@@ -1,5 +1,6 @@
 package net.eggc.ryoikumemo.data
 
+import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
 data class Note(
@@ -12,11 +13,13 @@ data class Note(
 data class SharedNoteInfo(val noteId: String, val ownerId: String, val noteName: String)
 
 interface NoteRepository {
+    fun getNotesFlow(): Flow<List<Note>>
     suspend fun getNotes(): List<Note>
     suspend fun createNote(name: String, sharedId: String? = null): Note
     suspend fun updateNote(note: Note)
     suspend fun deleteNote(noteId: String)
 
+    fun getTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>>
     suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, sharedId: String?, dateInMonth: LocalDate): List<TimelineItem>
     suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem>
     suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem?
