@@ -18,6 +18,7 @@ interface NoteRepository {
     suspend fun deleteNote(noteId: String)
 
     suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, sharedId: String?, dateInMonth: LocalDate): List<TimelineItem>
+    suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem>
     suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem?
     suspend fun getStampNoteSuggestions(ownerId: String, noteId: String, type: StampType): List<String>
 

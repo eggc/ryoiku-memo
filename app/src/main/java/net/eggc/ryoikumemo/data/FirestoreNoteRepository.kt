@@ -140,6 +140,23 @@ class FirestoreNoteRepository : NoteRepository {
         }
     }
 
+    override suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem> {
+        val snapshot = timelineCollection(ownerId, noteId)
+            .whereEqualTo("itemType", "stamp")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            StampItem(
+                timestamp = doc.getLong("timestamp")!!,
+                type = StampType.valueOf(doc.getString("type")!!),
+                note = doc.getString("note")!!,
+                operatorName = doc.getString("operatorName")
+            )
+        }
+    }
+
     override suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem? {
         val doc = timelineCollection(ownerId, noteId).document(timestamp.toString()).get().await()
         if (!doc.exists()) return null

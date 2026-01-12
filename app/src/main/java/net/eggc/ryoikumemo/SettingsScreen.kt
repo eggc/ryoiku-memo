@@ -12,16 +12,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,16 +39,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
+import net.eggc.ryoikumemo.data.Note
 
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     currentUser: FirebaseUser?,
+    notes: List<Note>,
     onLogoutClick: () -> Unit,
     onLoginClick: () -> Unit,
     onTermsClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit,
+    onCsvExportClick: (Note) -> Unit,
 ) {
+    var showExportDialog by remember { mutableStateOf(false) }
+
+    if (showExportDialog) {
+        ExportNoteSelectionDialog(
+            notes = notes,
+            onDismiss = { showExportDialog = false },
+            onNoteSelected = {
+                onCsvExportClick(it)
+                showExportDialog = false
+            }
+        )
+    }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -56,7 +80,28 @@ fun SettingsScreen(
             }
         }
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        item {
+            SettingsSection("一括処理") {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showExportDialog = true }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.FileDownload, contentDescription = null)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(text = "CSVエクスポート", modifier = Modifier.weight(1f))
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    }
+                }
+            }
+        }
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
         }
         item {
             SettingsSection("アプリ情報") {
@@ -70,7 +115,8 @@ fun SettingsScreen(
                         ) {
                             Text(
                                 text = "利用規約",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -84,7 +130,8 @@ fun SettingsScreen(
                         ) {
                             Text(
                                 text = "プライバシーポリシー",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -96,6 +143,44 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ExportNoteSelectionDialog(
+    notes: List<Note>,
+    onDismiss: () -> Unit,
+    onNoteSelected: (Note) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("エクスポートするノートを選択") },
+        text = {
+            if (notes.isEmpty()) {
+                Text("エクスポート可能なノートがありません。")
+            } else {
+                LazyColumn {
+                    items(notes) { note ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNoteSelected(note) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = note.name, style = MaterialTheme.typography.bodyLarge)
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("キャンセル")
+            }
+        }
+    )
 }
 
 @Composable

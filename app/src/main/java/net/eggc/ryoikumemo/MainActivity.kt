@@ -2,10 +2,14 @@ package net.eggc.ryoikumemo
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,7 +61,10 @@ import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,23 +95,71 @@ fun RyoikumemoApp() {
         }
     }
     var currentNote by remember { mutableStateOf<Note?>(null) }
+    var allNotes by remember { mutableStateOf<List<Note>>(emptyList()) }
     var selectedMonth by remember { mutableStateOf(LocalDate.now()) }
     val appPreferences = remember { AppPreferences(context) }
 
-    LaunchedEffect(noteRepository) {
+    var noteToExport by remember { mutableStateOf<Note?>(null) }
+
+    // CSV Export Handling
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null && noteToExport != null) {
+            coroutineScope.launch {
+                try {
+                    val stamps = noteRepository.getAllStampItems(noteToExport!!.ownerId, noteToExport!!.id)
+                    val csvContent = buildString {
+                        append("日時,種類,メモ,操作者\n")
+                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                            .withZone(ZoneId.systemDefault())
+                        stamps.forEach { stamp ->
+                            val dateStr = formatter.format(Instant.ofEpochMilli(stamp.timestamp))
+                            val typeStr = stamp.type.label
+                            val noteStr = stamp.note.replace("\n", " ").replace(",", " ")
+                            val operatorStr = stamp.operatorName ?: ""
+                            append("$dateStr,$typeStr,$noteStr,$operatorStr\n")
+                        }
+                    }
+                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(csvContent.toByteArray())
+                    }
+                    Toast.makeText(context, "エクスポートが完了しました", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "エラーが発生しました: ${e.message}", Toast.LENGTH_LONG).show()
+                } finally {
+                    noteToExport = null
+                }
+            }
+        } else {
+            noteToExport = null
+        }
+    }
+
+    LaunchedEffect(noteRepository, currentUser) {
         coroutineScope.launch {
+            // Load all notes (including shared ones)
+            val notes = noteRepository.getNotes().toMutableList()
+            if (currentUser != null) {
+                val subscribedIds = noteRepository.getSubscribedNoteIds()
+                subscribedIds.forEach { id ->
+                    noteRepository.getNoteBySharedId(id)?.let { info ->
+                        notes.add(Note(info.noteId, info.noteName, id, info.ownerId))
+                    }
+                }
+            }
+            allNotes = notes
+
             // Try to load the last selected note from preferences
             val lastNote = appPreferences.getLastSelectedNote()
-            if (lastNote != null) {
+            if (lastNote != null && notes.any { it.id == lastNote.id }) {
                 currentNote = lastNote
             } else {
-                // If no note is in preferences, fall back to the first note from the repository
-                val notes = noteRepository.getNotes()
                 if (notes.isNotEmpty()) {
                     currentNote = notes.first()
                 } else {
-                    // If there are no notes at all, create a new one
                     currentNote = noteRepository.createNote("ノート1")
+                    allNotes = listOf(currentNote!!)
                 }
                 currentNote?.let { appPreferences.saveLastSelectedNote(it) }
             }
@@ -233,6 +288,7 @@ fun RyoikumemoApp() {
                     AppDestinations.SETTINGS -> SettingsScreen(
                         modifier = Modifier.padding(innerPadding),
                         currentUser = currentUser,
+                        notes = allNotes,
                         onLogoutClick = {
                             Firebase.auth.signOut()
                             appPreferences.clearLastSelectedNote()
@@ -246,7 +302,12 @@ fun RyoikumemoApp() {
                             (context as? Activity)?.finish()
                         },
                         onTermsClick = { currentDestination = AppDestinations.TERMS },
-                        onPrivacyPolicyClick = { currentDestination = AppDestinations.PRIVACY_POLICY }
+                        onPrivacyPolicyClick = { currentDestination = AppDestinations.PRIVACY_POLICY },
+                        onCsvExportClick = { note ->
+                            noteToExport = note
+                            val fileName = "ryoiku_memo_${note.name}.csv"
+                            createDocumentLauncher.launch(fileName)
+                        }
                     )
 
                     AppDestinations.TERMS -> TermsScreen(
@@ -259,7 +320,7 @@ fun RyoikumemoApp() {
                         onNavigateUp = { currentDestination = AppDestinations.SETTINGS }
                     )
 
-                    AppDestinations.GRAPH -> {} // Deprecated, merged into Review
+                    AppDestinations.GRAPH -> {}
                 }
             }
         }

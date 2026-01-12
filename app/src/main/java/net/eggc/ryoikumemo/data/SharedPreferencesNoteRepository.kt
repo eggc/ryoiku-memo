@@ -38,7 +38,12 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         dateInMonth: LocalDate
     ): List<TimelineItem> {
         // SharedPreferences implementation doesn't support month-based filtering easily, returning all for simplicity
-        val stamps = stampPrefs(noteId).all.mapNotNull { (key, value) ->
+        val stamps = getAllStampItems(ownerId, noteId)
+        return stamps.sortedByDescending { it.timestamp }
+    }
+
+    override suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem> {
+        return stampPrefs(noteId).all.mapNotNull { (key, value) ->
             try {
                 val valueString = value as String
                 val parts = valueString.split('|', limit = 2)
@@ -48,9 +53,7 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
             } catch (e: Exception) {
                 null
             }
-        }
-
-        return stamps.sortedByDescending { it.timestamp }
+        }.sortedByDescending { it.timestamp }
     }
 
     override suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem? {
