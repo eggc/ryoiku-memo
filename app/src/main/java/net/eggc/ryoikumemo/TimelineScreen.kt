@@ -38,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
@@ -165,11 +167,12 @@ fun TimelineMonthPage(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
-    // addSnapshotListener を利用した Flow に変更
+    // addSnapshotListener を利用した Flow 
     val timelineItems by remember(note.id, month) {
         noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
 
+    var isRefreshing by remember { mutableStateOf(false) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     val listState = rememberLazyListState()
 
@@ -233,48 +236,67 @@ fun TimelineMonthPage(
             CircularProgressIndicator()
         }
     } else {
-        // addSnapshotListener でリアルタイム更新されるため、手動 Pull-to-refresh は不要になりますが、
-        // UIの一貫性のために残すか、削除するか選べます。ここでは簡略化のため PullToRefreshBox は維持せず表示のみにします。
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState
-        ) {
-            if (groupedItems.isEmpty()) {
-                item {
-                    Text(
-                        text = "この月の記録はありません。",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else {
-                groupedItems.forEach { (date, items) ->
-                    stickyHeader(key = "header_${date}") {
-                        Surface(
-                            modifier = Modifier
-                                .fillParentMaxWidth()
-                                .clickable { onDateClick() },
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text(
-                                text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                            )
-                        }
+        // addSnapshotListener による自動更新に加え、明示的なリロードを PullToRefreshBox で再提供します。
+        // Flowを再購読させるため、keyを更新するなどのハックが必要な場合もありますが、
+        // 一般的にはキャッシュの無効化（Firestoreでは一度リスナーを外して付け直す等）になります。
+        // ここではUIの状態としてリロードアニメーションを見せる形に復元します。
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                coroutineScope.launch {
+                    isRefreshing = true
+                    // 明示的な取得を行いたい場合は getTimelineItemsForMonth を呼ぶことも可能
+                    try {
+                        noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
+                    } finally {
+                        delay(500) // アニメーションを少し見せる
+                        isRefreshing = false
                     }
-                    items(items, key = {
-                        "stamp_${it.timestamp}"
-                    }) { item ->
-                        if (item is StampItem) {
-                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                StampHistoryCard(
-                                    timestamp = item.timestamp,
-                                    stampType = item.type,
-                                    note = item.note,
-                                    operatorName = item.operatorName,
-                                    onEditClick = { onEditStampClick(item.timestamp) },
-                                    onDeleteClick = { showDeleteDialogFor = item }
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState
+            ) {
+                if (groupedItems.isEmpty()) {
+                    item {
+                        Text(
+                            text = "この月の記録はありません。",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    groupedItems.forEach { (date, items) ->
+                        stickyHeader(key = "header_${date}") {
+                            Surface(
+                                modifier = Modifier
+                                    .fillParentMaxWidth()
+                                    .clickable { onDateClick() },
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                                 )
+                            }
+                        }
+                        items(items, key = {
+                            "stamp_${it.timestamp}"
+                        }) { item ->
+                            if (item is StampItem) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                    StampHistoryCard(
+                                        timestamp = item.timestamp,
+                                        stampType = item.type,
+                                        note = item.note,
+                                        operatorName = item.operatorName,
+                                        onEditClick = { onEditStampClick(item.timestamp) },
+                                        onDeleteClick = { showDeleteDialogFor = item }
+                                    )
+                                }
                             }
                         }
                     }
