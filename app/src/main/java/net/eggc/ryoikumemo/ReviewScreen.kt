@@ -3,16 +3,21 @@ package net.eggc.ryoikumemo
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.Placeholder
@@ -46,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
+import net.eggc.ryoikumemo.data.StampType
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -133,6 +141,14 @@ fun DiaryView(
 ) {
     var diaryData by remember { mutableStateOf<Map<Int, List<StampItem>>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
+
+    val filterOptions = listOf(
+        StampType.MEMO,
+        StampType.FUN,
+        StampType.PAINFUL,
+        StampType.TANTRUM
+    )
 
     LaunchedEffect(note.id, month) {
         isLoading = true
@@ -147,28 +163,76 @@ fun DiaryView(
         isLoading = false
     }
 
-    if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else if (diaryData.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                text = "この月の日記はありません。",
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    } else {
-        LazyColumn(
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Filter UI
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val daysInMonth = month.lengthOfMonth()
-            items((1..daysInMonth).toList()) { day ->
-                val items = diaryData[day] ?: emptyList()
-                if (items.isNotEmpty()) {
-                    DiaryRow(day = day, items = items)
+            filterOptions.forEach { type ->
+                val isSelected = selectedFilters.contains(type)
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            selectedFilters = if (isSelected) {
+                                selectedFilters - type
+                            } else {
+                                selectedFilters + type
+                            }
+                        },
+                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 2.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = type.icon,
+                            contentDescription = type.label,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            val filteredData = if (selectedFilters.isEmpty()) {
+                diaryData
+            } else {
+                diaryData.mapValues { (_, items) ->
+                    items.filter { selectedFilters.contains(it.type) }
+                }.filterValues { it.isNotEmpty() }
+            }
+
+            if (filteredData.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (selectedFilters.isEmpty()) "この月の日記はありません。" else "条件に合う記録はありません。",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    val daysInMonth = month.lengthOfMonth()
+                    items((1..daysInMonth).toList()) { day ->
+                        val items = filteredData[day] ?: emptyList()
+                        if (items.isNotEmpty()) {
+                            DiaryRow(day = day, items = items)
+                        }
+                    }
                 }
             }
         }
