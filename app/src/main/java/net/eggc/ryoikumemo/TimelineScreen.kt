@@ -87,6 +87,9 @@ fun TimelineScreen(
     var showJumpDatePicker by remember { mutableStateOf(false) }
     var targetDate by remember { mutableStateOf<LocalDate?>(null) }
 
+    // フィルター状態を TimelineScreen で保持することで月を跨いでも維持されるようにする
+    var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
+
     // Sync pager -> external state
     LaunchedEffect(pagerState.currentPage) {
         val month = BASE_MONTH.plusMonths(pagerState.currentPage.toLong())
@@ -138,6 +141,12 @@ fun TimelineScreen(
             onMonthClick = { showJumpDatePicker = true }
         )
 
+        // フィルター UI を HorizontalPager の外に出すことで、スワイプ中も固定表示され、状態も一元管理される
+        TimelineFilterBar(
+            selectedFilters = selectedFilters,
+            onFilterChange = { selectedFilters = it }
+        )
+
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
@@ -147,11 +156,55 @@ fun TimelineScreen(
                 noteRepository = noteRepository,
                 note = note,
                 month = month,
+                selectedFilters = selectedFilters,
                 targetDate = if (targetDate?.year == month.year && targetDate?.month == month.month) targetDate else null,
                 onTargetDateScrolled = { targetDate = null },
                 onEditStampClick = { onEditStampClick(it) },
                 onDateClick = { showJumpDatePicker = true }
             )
+        }
+    }
+}
+
+@Composable
+fun TimelineFilterBar(
+    selectedFilters: Set<StampType>,
+    onFilterChange: (Set<StampType>) -> Unit
+) {
+    val filterOptions = StampType.entries
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items(filterOptions) { type ->
+            val isSelected = selectedFilters.contains(type)
+            Surface(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        val newFilters = if (isSelected) {
+                            selectedFilters - type
+                        } else {
+                            selectedFilters + type
+                        }
+                        onFilterChange(newFilters)
+                    },
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 2.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = type.icon,
+                        contentDescription = type.label,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -162,6 +215,7 @@ fun TimelineMonthPage(
     noteRepository: NoteRepository,
     note: Note,
     month: LocalDate,
+    selectedFilters: Set<StampType>,
     targetDate: LocalDate?,
     onTargetDateScrolled: () -> Unit,
     onEditStampClick: (Long) -> Unit,
@@ -169,8 +223,8 @@ fun TimelineMonthPage(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    
-    // addSnapshotListener を利用した Flow 
+
+    // addSnapshotListener を利用した Flow
     val timelineItems by remember(note.id, month) {
         noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
@@ -178,9 +232,6 @@ fun TimelineMonthPage(
     var isRefreshing by remember { mutableStateOf(false) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     val listState = rememberLazyListState()
-
-    var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
-    val filterOptions = StampType.entries
 
     val groupedItems = remember(timelineItems, selectedFilters) {
         val items = timelineItems ?: return@remember emptyMap<LocalDate, List<TimelineItem>>()
@@ -199,13 +250,13 @@ fun TimelineMonthPage(
         if (targetDate != null && timelineItems != null && groupedItems.isNotEmpty()) {
             val availableDates = groupedItems.keys.sortedDescending()
             val jumpToDate = availableDates.firstOrNull { it <= targetDate } ?: availableDates.last()
-            
+
             var index = 0
             for (date in availableDates) {
                 if (date == jumpToDate) break
                 index += 1 + (groupedItems[date]?.size ?: 0)
             }
-            
+
             listState.animateScrollToItem(index)
             onTargetDateScrolled()
         }
@@ -243,104 +294,67 @@ fun TimelineMonthPage(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Filter UI
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items(filterOptions) { type ->
-                val isSelected = selectedFilters.contains(type)
-                Surface(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            selectedFilters = if (isSelected) {
-                                selectedFilters - type
-                            } else {
-                                selectedFilters + type
-                            }
-                        },
-                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    tonalElevation = 2.dp
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = type.icon,
-                            contentDescription = type.label,
-                            modifier = Modifier.size(24.dp),
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+    if (timelineItems == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+    } else {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                coroutineScope.launch {
+                    isRefreshing = true
+                    try {
+                        noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
+                    } finally {
+                        delay(500)
+                        isRefreshing = false
                     }
                 }
-            }
-        }
-
-        if (timelineItems == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = {
-                    coroutineScope.launch {
-                        isRefreshing = true
-                        try {
-                            noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
-                        } finally {
-                            delay(500)
-                            isRefreshing = false
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
+            },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = listState
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState
-                ) {
-                    if (groupedItems.isEmpty()) {
-                        item {
-                            Text(
-                                text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
-                                modifier = Modifier.padding(16.dp)
-                            )
-                        }
-                    } else {
-                        groupedItems.forEach { (date, items) ->
-                            stickyHeader(key = "header_${date}") {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillParentMaxWidth()
-                                        .clickable { onDateClick() },
-                                    color = MaterialTheme.colorScheme.primaryContainer
-                                ) {
-                                    Text(
-                                        text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                                    )
-                                }
+                if (groupedItems.isEmpty()) {
+                    item {
+                        Text(
+                            text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                } else {
+                    groupedItems.forEach { (date, items) ->
+                        stickyHeader(key = "header_${date}") {
+                            Surface(
+                                modifier = Modifier
+                                    .fillParentMaxWidth()
+                                    .clickable { onDateClick() },
+                                color = MaterialTheme.colorScheme.primaryContainer
+                                    .copy(alpha = 0.95f) // 少し透過させて背景の気配を残す
+                            ) {
+                                Text(
+                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                                )
                             }
-                            items(items, key = {
-                                "stamp_${it.timestamp}"
-                            }) { item ->
-                                if (item is StampItem) {
-                                    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                        StampHistoryCard(
-                                            timestamp = item.timestamp,
-                                            stampType = item.type,
-                                            note = item.note,
-                                            operatorName = item.operatorName,
-                                            onEditClick = { onEditStampClick(item.timestamp) },
-                                            onDeleteClick = { showDeleteDialogFor = item }
-                                        )
-                                    }
+                        }
+                        items(items, key = {
+                            "stamp_${it.timestamp}"
+                        }) { item ->
+                            if (item is StampItem) {
+                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                    StampHistoryCard(
+                                        timestamp = item.timestamp,
+                                        stampType = item.type,
+                                        note = item.note,
+                                        operatorName = item.operatorName,
+                                        onEditClick = { onEditStampClick(item.timestamp) },
+                                        onDeleteClick = { showDeleteDialogFor = item }
+                                    )
                                 }
                             }
                         }
