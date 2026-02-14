@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -27,10 +26,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -206,21 +206,29 @@ fun AuthScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val linkStyle = SpanStyle(
+            color = MaterialTheme.colorScheme.primary,
+            textDecoration = TextDecoration.Underline
+        )
         val annotatedString = buildAnnotatedString {
-            val linkStyle = SpanStyle(
-                color = MaterialTheme.colorScheme.primary,
-                textDecoration = TextDecoration.Underline
+            pushLink(
+                LinkAnnotation.Clickable(
+                    tag = "TERMS",
+                    styles = TextLinkStyles(style = linkStyle),
+                    linkInteractionListener = { onTermsClick() }
+                )
             )
-            pushStringAnnotation(tag = "TERMS", annotation = "TERMS")
-            withStyle(style = linkStyle) {
-                append("利用規約")
-            }
+            append("利用規約")
             pop()
             append("と")
-            pushStringAnnotation(tag = "POLICY", annotation = "POLICY")
-            withStyle(style = linkStyle) {
-                append("プライバシーポリシー")
-            }
+            pushLink(
+                LinkAnnotation.Clickable(
+                    tag = "POLICY",
+                    styles = TextLinkStyles(style = linkStyle),
+                    linkInteractionListener = { onPrivacyPolicyClick() }
+                )
+            )
+            append("プライバシーポリシー")
             pop()
             append("に同意の上、ご利用ください。")
         }
@@ -230,23 +238,8 @@ fun AuthScreen(
             modifier = Modifier.padding(bottom = 24.dp)
         ) {
             Checkbox(checked = agreed, onCheckedChange = { agreed = it })
-            ClickableText(
+            Text(
                 text = annotatedString,
-                onClick = { offset ->
-                    annotatedString.getStringAnnotations(
-                        tag = "TERMS",
-                        start = offset,
-                        end = offset
-                    )
-                        .firstOrNull()?.let { onTermsClick() }
-
-                    annotatedString.getStringAnnotations(
-                        tag = "POLICY",
-                        start = offset,
-                        end = offset
-                    )
-                        .firstOrNull()?.let { onPrivacyPolicyClick() }
-                },
                 modifier = Modifier.padding(start = 8.dp)
             )
         }

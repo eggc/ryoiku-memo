@@ -79,30 +79,33 @@ fun TermsScreen(
             }
             item {
                 val annotatedString = buildAnnotatedString {
-                    append(termsText)
                     val urlPattern = "https://[^\\s]+".toRegex()
+                    var lastIndex = 0
                     urlPattern.findAll(termsText).forEach { matchResult ->
-                        addStringAnnotation(
-                            tag = "URL",
-                            annotation = matchResult.value,
-                            start = matchResult.range.first,
-                            end = matchResult.range.last + 1
-                        )
-                        addStyle(
-                            style = SpanStyle(
+                        append(termsText.substring(lastIndex, matchResult.range.first))
+                        val url = matchResult.value
+
+                        pushStringAnnotation(tag = "URL", annotation = url)
+                        pushStyle(
+                            SpanStyle(
                                 color = MaterialTheme.colorScheme.primary,
                                 textDecoration = TextDecoration.Underline
-                            ),
-                            start = matchResult.range.first,
-                            end = matchResult.range.last + 1
+                            )
                         )
+                        append(url)
+                        pop()
+                        pop()
+
+                        lastIndex = matchResult.range.last + 1
                     }
+                    append(termsText.substring(lastIndex))
                 }
 
+                @Suppress("DEPRECATION")
                 ClickableText(
                     text = annotatedString,
-                    onClick = {
-                        annotatedString.getStringAnnotations("URL", it, it)
+                    onClick = { offset ->
+                        annotatedString.getStringAnnotations("URL", offset, offset)
                             .firstOrNull()?.let { annotation ->
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
                                 context.startActivity(intent)

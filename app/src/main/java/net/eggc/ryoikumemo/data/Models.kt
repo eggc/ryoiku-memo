@@ -1,14 +1,14 @@
 package net.eggc.ryoikumemo.data
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.automirrored.filled.StickyNote2
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Hexagon
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
-import androidx.compose.material.icons.filled.StickyNote2
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,8 +38,8 @@ enum class StampType(val label: String, val icon: ImageVector) {
     TANTRUM("かんしゃく", Icons.Default.LocalFireDepartment),
     POO("うんち", Icons.Filled.Hexagon),
     PEE("おしっこ", Icons.Default.WaterDrop),
-    OUTING("おでかけ", Icons.Default.DirectionsWalk),
-    MEMO("メモ", Icons.Default.StickyNote2),
+    OUTING("おでかけ", Icons.AutoMirrored.Filled.DirectionsWalk),
+    MEMO("メモ", Icons.AutoMirrored.Filled.StickyNote2),
 }
 
 data class Task(

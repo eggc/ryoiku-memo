@@ -79,30 +79,32 @@ fun PrivacyPolicyScreen(
             }
             item {
                 val annotatedString = buildAnnotatedString {
-                    append(privacyPolicyText)
                     val urlPattern = "https://[^\\s]+".toRegex()
+                    var lastIndex = 0
                     urlPattern.findAll(privacyPolicyText).forEach { matchResult ->
-                        addStringAnnotation(
-                            tag = "URL",
-                            annotation = matchResult.value,
-                            start = matchResult.range.first,
-                            end = matchResult.range.last + 1
+                        append(privacyPolicyText.substring(lastIndex, matchResult.range.first))
+                        val url = matchResult.value
+                        
+                        pushStringAnnotation(tag = "URL", annotation = url)
+                        val linkStyle = SpanStyle(
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline
                         )
-                        addStyle(
-                            style = SpanStyle(
-                                color = MaterialTheme.colorScheme.primary,
-                                textDecoration = TextDecoration.Underline
-                            ),
-                            start = matchResult.range.first,
-                            end = matchResult.range.last + 1
-                        )
+                        pushStyle(linkStyle)
+                        append(url)
+                        pop()
+                        pop()
+                        
+                        lastIndex = matchResult.range.last + 1
                     }
+                    append(privacyPolicyText.substring(lastIndex))
                 }
 
+                @Suppress("DEPRECATION")
                 ClickableText(
                     text = annotatedString,
-                    onClick = {
-                        annotatedString.getStringAnnotations("URL", it, it)
+                    onClick = { offset ->
+                        annotatedString.getStringAnnotations("URL", offset, offset)
                             .firstOrNull()?.let { annotation ->
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
                                 context.startActivity(intent)
