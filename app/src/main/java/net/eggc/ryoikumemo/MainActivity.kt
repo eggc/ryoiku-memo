@@ -276,7 +276,7 @@ fun RyoikumemoApp() {
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
                         note = currentNote!!,
-                        onStampSaved = { currentDestination = AppDestinations.TIMELINE }
+                        onStampSaved = { /* なにもしない（きろくタブに留まる） */ }
                     )
 
                     AppDestinations.EDIT_STAMP -> EditStampScreen(
@@ -363,7 +363,7 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
-    STAMP("スタンプ", Icons.Default.AccessTime),
+    STAMP("きろく", Icons.Default.AccessTime),
     REVIEW("ふりかえり", Icons.Default.AutoStories),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
