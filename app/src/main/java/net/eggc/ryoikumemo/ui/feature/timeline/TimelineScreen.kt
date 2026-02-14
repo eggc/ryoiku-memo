@@ -1,4 +1,4 @@
-package net.eggc.ryoikumemo
+package net.eggc.ryoikumemo.ui.feature.timeline
 
 import android.util.Log
 import android.widget.Toast
@@ -23,8 +23,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -62,6 +60,7 @@ import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineItem
+import net.eggc.ryoikumemo.ui.components.MonthSelector
 import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -376,34 +375,9 @@ fun TimelineMonthPage(
 }
 
 @Composable
-fun MonthSelector(currentMonth: LocalDate, onMonthChange: (LocalDate) -> Unit, onMonthClick: () -> Unit = {}) {
-    val formatter = DateTimeFormatter.ofPattern("yyyy年 M月")
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "前の月")
-        }
-        Text(
-            text = currentMonth.format(formatter),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.clickable { onMonthClick() }
-        )
-        IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "次の月")
-        }
-    }
-}
-
-@Composable
 fun StampHistoryCard(
     timestamp: Long,
-    stampType: net.eggc.ryoikumemo.data.StampType,
+    stampType: StampType,
     note: String,
     operatorName: String?,
     onEditClick: () -> Unit,
