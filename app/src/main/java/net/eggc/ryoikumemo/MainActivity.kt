@@ -76,7 +76,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
     val allNotes by viewModel.allNotes.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val editingStamp by viewModel.editingStamp.collectAsState()
-    
+
     val context = LocalContext.current
 
     // 編集用ダイアログの表示管理
@@ -207,9 +207,9 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         modifier = Modifier.padding(innerPadding),
                         currentUser = currentUser,
                         notes = allNotes,
+                        noteRepository = noteRepository,
                         onLogoutClick = {
                             Firebase.auth.signOut()
-                            // AuthStateListener が ViewModel 側で検知して refresh される
                             val intent = Intent(context, AuthActivity::class.java)
                             (context as? Activity)?.startActivity(intent)
                             (context as? Activity)?.finish()
@@ -221,12 +221,6 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         },
                         onTermsClick = { viewModel.navigateTo(AppDestinations.TERMS) },
                         onPrivacyPolicyClick = { viewModel.navigateTo(AppDestinations.PRIVACY_POLICY) },
-                        onCsvExportClick = { note ->
-                            // TODO: CSV Export manager integration if needed in ViewModel
-                        },
-                        onCsvImportClick = { note ->
-                            // TODO: CSV Import manager integration if needed in ViewModel
-                        },
                         onRefreshNotes = {
                             viewModel.refreshNotes()
                         }

@@ -1,5 +1,9 @@
 package net.eggc.ryoikumemo.ui.feature.settings
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,18 +34,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
-import net.eggc.ryoikumemo.R
+import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.CsvExportManager
+import net.eggc.ryoikumemo.data.CsvImportManager
 import net.eggc.ryoikumemo.data.Note
+import net.eggc.ryoikumemo.data.NoteRepository
 
 
 @Composable
@@ -49,16 +58,63 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     currentUser: FirebaseUser?,
     notes: List<Note>,
+    noteRepository: NoteRepository,
     onLogoutClick: () -> Unit,
     onLoginClick: () -> Unit,
     onTermsClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit,
-    onCsvExportClick: (Note) -> Unit,
-    onCsvImportClick: (Note) -> Unit,
     onRefreshNotes: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
+
+    var noteToExport by remember { mutableStateOf<Note?>(null) }
+    var noteToImport by remember { mutableStateOf<Note?>(null) }
+
+    val csvImportManager = remember(noteRepository) { CsvImportManager(context, noteRepository) }
+    val csvExportManager = remember(noteRepository) { CsvExportManager(context, noteRepository) }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null && noteToExport != null) {
+            coroutineScope.launch {
+                val result = csvExportManager.exportCsv(uri, noteToExport!!)
+                if (result.isSuccess) {
+                    Toast.makeText(context, "エクスポートが完了しました", Toast.LENGTH_SHORT).show()
+                } else {
+                    val error = result.exceptionOrNull()
+                    Toast.makeText(context, "エラーが発生しました: ${error?.message}", Toast.LENGTH_LONG).show()
+                }
+                noteToExport = null
+            }
+        } else {
+            noteToExport = null
+        }
+    }
+
+    val importContentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null && noteToImport != null) {
+            coroutineScope.launch {
+                val result = csvImportManager.importCsv(uri, noteToImport!!)
+                if (result.isSuccess) {
+                    val count = result.getOrNull() ?: 0
+                    Toast.makeText(context, "${count}件のデータをインポートしました", Toast.LENGTH_SHORT).show()
+                } else {
+                    val error = result.exceptionOrNull()
+                    Toast.makeText(context, "エラーが発生しました: ${error?.message}", Toast.LENGTH_LONG).show()
+                }
+                noteToImport = null
+            }
+        } else {
+            noteToImport = null
+        }
+    }
 
     if (showExportDialog) {
         NoteSelectionDialog(
@@ -66,7 +122,8 @@ fun SettingsScreen(
             notes = notes,
             onDismiss = { showExportDialog = false },
             onNoteSelected = {
-                onCsvExportClick(it)
+                noteToExport = it
+                createDocumentLauncher.launch("ryoiku_memo_${it.name}.csv")
                 showExportDialog = false
             }
         )
@@ -78,7 +135,8 @@ fun SettingsScreen(
             notes = notes,
             onDismiss = { showImportDialog = false },
             onNoteSelected = {
-                onCsvImportClick(it)
+                noteToImport = it
+                importContentLauncher.launch("text/*")
                 showImportDialog = false
             }
         )
