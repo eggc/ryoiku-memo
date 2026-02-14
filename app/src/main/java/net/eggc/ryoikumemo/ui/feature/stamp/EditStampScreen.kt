@@ -1,4 +1,4 @@
-package net.eggc.ryoikumemo
+package net.eggc.ryoikumemo.ui.feature.stamp
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
