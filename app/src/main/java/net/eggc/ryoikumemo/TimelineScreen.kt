@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -49,12 +51,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
+import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineItem
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -165,18 +170,28 @@ fun TimelineMonthPage(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
-    // addSnapshotListener を利用した Flow に変更
+    // addSnapshotListener を利用した Flow 
     val timelineItems by remember(note.id, month) {
         noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
 
+    var isRefreshing by remember { mutableStateOf(false) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     val listState = rememberLazyListState()
 
-    val groupedItems = remember(timelineItems) {
-        timelineItems?.groupBy {
+    var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
+    val filterOptions = StampType.entries
+
+    val groupedItems = remember(timelineItems, selectedFilters) {
+        val items = timelineItems ?: return@remember emptyMap<LocalDate, List<TimelineItem>>()
+        val filteredItems = if (selectedFilters.isEmpty()) {
+            items
+        } else {
+            items.filter { it is StampItem && selectedFilters.contains(it.type) }
+        }
+        filteredItems.groupBy {
             Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-        } ?: emptyMap()
+        }
     }
 
     // Handle jump to specific date within the month
@@ -228,53 +243,105 @@ fun TimelineMonthPage(
         )
     }
 
-    if (timelineItems == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else {
-        // addSnapshotListener でリアルタイム更新されるため、手動 Pull-to-refresh は不要になりますが、
-        // UIの一貫性のために残すか、削除するか選べます。ここでは簡略化のため PullToRefreshBox は維持せず表示のみにします。
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Filter UI
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (groupedItems.isEmpty()) {
-                item {
-                    Text(
-                        text = "この月の記録はありません。",
-                        modifier = Modifier.padding(16.dp)
-                    )
+            items(filterOptions) { type ->
+                val isSelected = selectedFilters.contains(type)
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            selectedFilters = if (isSelected) {
+                                selectedFilters - type
+                            } else {
+                                selectedFilters + type
+                            }
+                        },
+                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 2.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = type.icon,
+                            contentDescription = type.label,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-            } else {
-                groupedItems.forEach { (date, items) ->
-                    stickyHeader(key = "header_${date}") {
-                        Surface(
-                            modifier = Modifier
-                                .fillParentMaxWidth()
-                                .clickable { onDateClick() },
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text(
-                                text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                            )
+            }
+        }
+
+        if (timelineItems == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    coroutineScope.launch {
+                        isRefreshing = true
+                        try {
+                            noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
+                        } finally {
+                            delay(500)
+                            isRefreshing = false
                         }
                     }
-                    items(items, key = {
-                        "stamp_${it.timestamp}"
-                    }) { item ->
-                        if (item is StampItem) {
-                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                StampHistoryCard(
-                                    timestamp = item.timestamp,
-                                    stampType = item.type,
-                                    note = item.note,
-                                    operatorName = item.operatorName,
-                                    onEditClick = { onEditStampClick(item.timestamp) },
-                                    onDeleteClick = { showDeleteDialogFor = item }
-                                )
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState
+                ) {
+                    if (groupedItems.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    } else {
+                        groupedItems.forEach { (date, items) ->
+                            stickyHeader(key = "header_${date}") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillParentMaxWidth()
+                                        .clickable { onDateClick() },
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            items(items, key = {
+                                "stamp_${it.timestamp}"
+                            }) { item ->
+                                if (item is StampItem) {
+                                    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+                                        StampHistoryCard(
+                                            timestamp = item.timestamp,
+                                            stampType = item.type,
+                                            note = item.note,
+                                            operatorName = item.operatorName,
+                                            onEditClick = { onEditStampClick(item.timestamp) },
+                                            onDeleteClick = { showDeleteDialogFor = item }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
