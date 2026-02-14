@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -39,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
@@ -158,79 +161,89 @@ fun EditStampScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Text("スタンプの編集", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text("スタンプの編集", style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(stampItem!!.type.icon, contentDescription = null, modifier = Modifier.size(40.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(stampItem!!.type.label, style = MaterialTheme.typography.titleLarge)
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Button(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
-                Text(Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy/MM/dd")))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(stampItem!!.type.icon, contentDescription = null, modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(stampItem!!.type.label, style = MaterialTheme.typography.titleLarge)
             }
-            Button(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
-                Text(Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
+                    Text(Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy/MM/dd")))
+                }
+                Button(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
+                    Text(Instant.ofEpochMilli(currentTimestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")))
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        if (stampItem!!.type == StampType.MEMO) {
-            TextField(
-                value = noteText,
-                onValueChange = { if (it.length <= 2048) noteText = it },
-                label = { Text("詳細") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                singleLine = false
-            )
-        } else {
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            if (stampItem!!.type == StampType.MEMO) {
                 TextField(
                     value = noteText,
                     onValueChange = { if (it.length <= 2048) noteText = it },
                     label = { Text("詳細") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable)
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = false,
+                    minLines = 5
                 )
-                ExposedDropdownMenu(
+            } else {
+                ExposedDropdownMenuBox(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false },
+                    onExpandedChange = { expanded = !expanded },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    suggestions.forEach { selectionOption ->
-                        DropdownMenuItem(
-                            text = { Text(selectionOption) },
-                            onClick = {
-                                noteText = selectionOption
-                                expanded = false
-                            }
-                        )
+                    TextField(
+                        value = noteText,
+                        onValueChange = { if (it.length <= 2048) noteText = it },
+                        label = { Text("詳細") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                    ) {
+                        suggestions.forEach { selectionOption ->
+                            DropdownMenuItem(
+                                text = { 
+                                    Text(
+                                        text = selectionOption,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    ) 
+                                },
+                                onClick = {
+                                    noteText = selectionOption
+                                    expanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        if (stampItem!!.type != StampType.MEMO) {
-            Spacer(modifier = Modifier.weight(1f))
-        }
-
-        Button(onClick = {
-            coroutineScope.launch {
-                noteRepository.deleteTimelineItem(note.ownerId, note.id, stampItem!!)
-                noteRepository.saveStamp(note.ownerId, note.id, stampItem!!.type, noteText, currentTimestamp)
-                Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
-                onStampUpdated()
-            }
-        }) {
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = {
+                coroutineScope.launch {
+                    noteRepository.deleteTimelineItem(note.ownerId, note.id, stampItem!!)
+                    noteRepository.saveStamp(note.ownerId, note.id, stampItem!!.type, noteText, currentTimestamp)
+                    Toast.makeText(context, "スタンプを更新しました", Toast.LENGTH_SHORT).show()
+                    onStampUpdated()
+                }
+            }) {
             Text("保存")
         }
     }
