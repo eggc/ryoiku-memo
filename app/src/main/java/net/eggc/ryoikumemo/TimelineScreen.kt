@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
@@ -87,7 +88,12 @@ fun TimelineScreen(
     var showJumpDatePicker by remember { mutableStateOf(false) }
     var targetDate by remember { mutableStateOf<LocalDate?>(null) }
 
-    // フィルター状態を TimelineScreen で保持することで月を跨いでも維持されるようにする
+    val context = LocalContext.current
+    val appPreferences = remember { AppPreferences(context) }
+    // カスタマイズ設定（非表示スタンプ）を取得
+    val hiddenStampTypes = remember { appPreferences.getHiddenStampTypes() }
+
+    // フィルター状態を保持
     var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
 
     // Sync pager -> external state
@@ -141,9 +147,10 @@ fun TimelineScreen(
             onMonthClick = { showJumpDatePicker = true }
         )
 
-        // フィルター UI を HorizontalPager の外に出すことで、スワイプ中も固定表示され、状態も一元管理される
+        // フィルター UI（非表示のものは除外）
         TimelineFilterBar(
             selectedFilters = selectedFilters,
+            hiddenStampTypes = hiddenStampTypes,
             onFilterChange = { selectedFilters = it }
         )
 
@@ -169,9 +176,12 @@ fun TimelineScreen(
 @Composable
 fun TimelineFilterBar(
     selectedFilters: Set<StampType>,
+    hiddenStampTypes: Set<String>,
     onFilterChange: (Set<StampType>) -> Unit
 ) {
-    val filterOptions = StampType.entries
+    // 表示対象のスタンプのみを抽出
+    val filterOptions = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
+
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -333,7 +343,7 @@ fun TimelineMonthPage(
                                     .fillParentMaxWidth()
                                     .clickable { onDateClick() },
                                 color = MaterialTheme.colorScheme.primaryContainer
-                                    .copy(alpha = 0.95f) // 少し透過させて背景の気配を残す
+                                    .copy(alpha = 0.95f)
                             ) {
                                 Text(
                                     text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
