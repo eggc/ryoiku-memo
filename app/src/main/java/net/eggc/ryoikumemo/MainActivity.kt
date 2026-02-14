@@ -62,13 +62,14 @@ import net.eggc.ryoikumemo.data.FirestoreNoteRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
+import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.ui.feature.note.NoteScreen
 import net.eggc.ryoikumemo.ui.feature.review.ReviewScreen
 import net.eggc.ryoikumemo.ui.feature.settings.PrivacyPolicyScreen
 import net.eggc.ryoikumemo.ui.feature.settings.SettingsScreen
 import net.eggc.ryoikumemo.ui.feature.settings.TermsScreen
-import net.eggc.ryoikumemo.ui.feature.stamp.EditStampScreen
+import net.eggc.ryoikumemo.ui.feature.stamp.EditStampDialog
 import net.eggc.ryoikumemo.ui.feature.stamp.StampScreen
 import net.eggc.ryoikumemo.ui.feature.timeline.TimelineScreen
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
@@ -94,7 +95,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun RyoikumemoApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TIMELINE) }
-    var editingStampId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editingStamp by remember { mutableStateOf<StampItem?>(null) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val currentUser = Firebase.auth.currentUser
@@ -193,6 +194,26 @@ fun RyoikumemoApp() {
         }
     }
 
+    // 編集用ダイアログの表示管理
+    if (editingStamp != null && currentNote != null) {
+        EditStampDialog(
+            stampType = editingStamp!!.type,
+            initialTimestamp = editingStamp!!.timestamp,
+            initialNote = editingStamp!!.note,
+            noteRepository = noteRepository,
+            note = currentNote!!,
+            onDismiss = { editingStamp = null },
+            onConfirm = { timestamp, noteText ->
+                coroutineScope.launch {
+                    noteRepository.deleteTimelineItem(currentNote!!.ownerId, currentNote!!.id, editingStamp!!)
+                    noteRepository.saveStamp(currentNote!!.ownerId, currentNote!!.id, editingStamp!!.type, noteText, timestamp)
+                    Toast.makeText(context, "更新しました", Toast.LENGTH_SHORT).show()
+                    editingStamp = null
+                }
+            }
+        )
+    }
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             AppDestinations.entries.filter { it.icon != null }.forEach { dest ->
@@ -207,7 +228,7 @@ fun RyoikumemoApp() {
                     selected = dest == currentDestination,
                     onClick = {
                         currentDestination = dest
-                        editingStampId = null
+                        editingStamp = null
                     }
                 )
             }
@@ -267,8 +288,10 @@ fun RyoikumemoApp() {
                         currentMonth = selectedMonth,
                         onMonthChange = { selectedMonth = it },
                         onEditStampClick = { stampId ->
-                            editingStampId = stampId
-                            currentDestination = AppDestinations.EDIT_STAMP
+                            coroutineScope.launch {
+                                val item = noteRepository.getStampItem(currentNote!!.ownerId, currentNote!!.id, stampId)
+                                editingStamp = item
+                            }
                         }
                     )
 
@@ -285,17 +308,6 @@ fun RyoikumemoApp() {
                         noteRepository = noteRepository,
                         note = currentNote!!,
                         onStampSaved = { /* なにもしない（きろくタブに留まる） */ }
-                    )
-
-                    AppDestinations.EDIT_STAMP -> EditStampScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        stampId = editingStampId!!,
-                        noteRepository = noteRepository,
-                        note = currentNote!!,
-                        onStampUpdated = {
-                            currentDestination = AppDestinations.TIMELINE
-                            editingStampId = null
-                        }
                     )
 
                     AppDestinations.NOTE -> NoteScreen(
@@ -375,7 +387,6 @@ enum class AppDestinations(
     REVIEW("ふりかえり", Icons.Default.AutoStories),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
-    EDIT_STAMP("スタンプ編集", null),
     TERMS("利用規約", null),
     PRIVACY_POLICY("プライバシーポリシー", null),
     GRAPH("グラフ", null)

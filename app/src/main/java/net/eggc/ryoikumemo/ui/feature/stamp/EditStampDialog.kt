@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,13 +50,15 @@ import java.util.Calendar
 @Composable
 fun EditStampDialog(
     stampType: StampType,
+    initialTimestamp: Long = System.currentTimeMillis(),
+    initialNote: String = "",
     noteRepository: NoteRepository,
     note: Note,
     onDismiss: () -> Unit,
     onConfirm: (Long, String) -> Unit
 ) {
-    var timestamp by remember { mutableStateOf(System.currentTimeMillis()) }
-    var memoText by remember { mutableStateOf("") }
+    var timestamp by remember { mutableStateOf(initialTimestamp) }
+    var memoText by remember { mutableStateOf(initialNote) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
