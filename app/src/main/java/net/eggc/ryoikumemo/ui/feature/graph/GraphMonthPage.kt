@@ -1,21 +1,17 @@
 package net.eggc.ryoikumemo.ui.feature.graph
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -31,58 +27,10 @@ import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
-import net.eggc.ryoikumemo.ui.components.MonthSelector
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-
-private val BASE_MONTH = LocalDate.of(2020, 1, 1)
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun GraphScreen(
-    modifier: Modifier = Modifier,
-    noteRepository: NoteRepository,
-    note: Note,
-    currentMonth: LocalDate,
-    onMonthChange: (LocalDate) -> Unit
-) {
-    val initialPage = remember { ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt() }
-    val pagerState = rememberPagerState(initialPage = initialPage) { 1200 } // 100 years
-
-    // Sync pager -> external state
-    LaunchedEffect(pagerState.currentPage) {
-        val month = BASE_MONTH.plusMonths(pagerState.currentPage.toLong())
-        if (!month.isEqual(currentMonth.withDayOfMonth(1))) {
-            onMonthChange(month)
-        }
-    }
-
-    // Sync external state -> pager
-    LaunchedEffect(currentMonth) {
-        val page = ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt()
-        if (pagerState.currentPage != page) {
-            pagerState.animateScrollToPage(page)
-        }
-    }
-
-    Column(modifier = modifier) {
-        MonthSelector(currentMonth = currentMonth, onMonthChange = onMonthChange)
-
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            val month = BASE_MONTH.plusMonths(page.toLong())
-            GraphMonthPage(
-                noteRepository = noteRepository,
-                note = note,
-                month = month
-            )
-        }
-    }
-}
 
 @Composable
 fun GraphMonthPage(
