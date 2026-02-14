@@ -30,6 +30,9 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +74,9 @@ fun StampScreen(
     val coroutineScope = rememberCoroutineScope()
     val appPreferences = remember { AppPreferences(context) }
 
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = listOf("スタンプ", "タスク")
+
     var isCustomizing by remember { mutableStateOf(false) }
     var hiddenStampTypes by remember { mutableStateOf(appPreferences.getHiddenStampTypes()) }
     var selectedStampType by remember { mutableStateOf<StampType?>(null) }
@@ -96,66 +102,92 @@ fun StampScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        Row(
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.End
+                .padding(16.dp)
         ) {
-            if (isCustomizing) {
-                TextButton(onClick = {
-                    appPreferences.saveHiddenStampTypes(hiddenStampTypes)
-                    isCustomizing = false
-                }) {
-                    Text("完了")
-                }
-            } else {
-                TextButton(onClick = { isCustomizing = true }) {
-                    Text("カスタマイズ")
+            tabs.forEachIndexed { index, label ->
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                    onClick = { selectedTabIndex = index },
+                    selected = index == selectedTabIndex
+                ) {
+                    Text(label)
                 }
             }
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 128.dp),
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val itemsToShow = if (isCustomizing) StampType.entries else visibleStampTypes
-            items(itemsToShow) { stampType ->
-                Card(
-                    modifier = Modifier.padding(8.dp),
-                    onClick = {
-                        if (!isCustomizing && note != null) {
-                            selectedStampType = stampType
-                        }
+        if (selectedTabIndex == 0) {
+            // スタンプ画面
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (isCustomizing) {
+                    TextButton(onClick = {
+                        appPreferences.saveHiddenStampTypes(hiddenStampTypes)
+                        isCustomizing = false
+                    }) {
+                        Text("完了")
                     }
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
+                } else {
+                    TextButton(onClick = { isCustomizing = true }) {
+                        Text("カスタマイズ")
+                    }
+                }
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 128.dp),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val itemsToShow = if (isCustomizing) StampType.entries else visibleStampTypes
+                items(itemsToShow) { stampType ->
+                    Card(
+                        modifier = Modifier.padding(8.dp),
+                        onClick = {
+                            if (!isCustomizing && note != null) {
+                                selectedStampType = stampType
+                            }
+                        }
                     ) {
-                        Icon(stampType.icon, contentDescription = stampType.label)
-                        Text(stampType.label)
-                        if (isCustomizing) {
-                            Switch(
-                                checked = !hiddenStampTypes.contains(stampType.name),
-                                onCheckedChange = { isChecked ->
-                                    hiddenStampTypes = if (isChecked) {
-                                        hiddenStampTypes - stampType.name
-                                    } else {
-                                        hiddenStampTypes + stampType.name
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth().padding(16.dp)
+                        ) {
+                            Icon(stampType.icon, contentDescription = stampType.label)
+                            Text(stampType.label)
+                            if (isCustomizing) {
+                                Switch(
+                                    checked = !hiddenStampTypes.contains(stampType.name),
+                                    onCheckedChange = { isChecked ->
+                                        hiddenStampTypes = if (isChecked) {
+                                            hiddenStampTypes - stampType.name
+                                        } else {
+                                            hiddenStampTypes + stampType.name
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
             }
+        } else if (note != null) {
+            // タスク画面
+            TaskScreen(
+                noteRepository = noteRepository,
+                note = note,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -178,7 +210,6 @@ fun RecordDetailsDialog(
 
     LaunchedEffect(stampType) {
         if (stampType != StampType.MEMO) {
-            // サジェストの候補を最大5件に制限
             suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id, stampType).take(5)
         }
     }
@@ -260,7 +291,6 @@ fun RecordDetailsDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // ダイアログの最小高さをさらに広げて、保存ボタンが隠れにくくする
                     .heightIn(min = 360.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
