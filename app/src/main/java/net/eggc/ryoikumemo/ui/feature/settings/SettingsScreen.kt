@@ -1,4 +1,4 @@
-package net.eggc.ryoikumemo
+package net.eggc.ryoikumemo.ui.feature.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,7 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
+import net.eggc.ryoikumemo.R
 import net.eggc.ryoikumemo.data.Note
+
 
 @Composable
 fun SettingsScreen(
@@ -252,8 +254,8 @@ private fun UserInfoCard(currentUser: FirebaseUser, onLogoutClick: () -> Unit) {
                         .size(64.dp)
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop,
-                    error = painterResource(id = R.drawable.ic_launcher_foreground),
-                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
+                    error = painterResource(id = net.eggc.ryoikumemo.R.drawable.ic_launcher_foreground),
+                    placeholder = painterResource(id = net.eggc.ryoikumemo.R.drawable.ic_launcher_foreground)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {

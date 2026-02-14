@@ -44,6 +44,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
+import net.eggc.ryoikumemo.ui.feature.settings.PrivacyPolicyScreen
+import net.eggc.ryoikumemo.ui.feature.settings.TermsScreen
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 import java.util.UUID
 

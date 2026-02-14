@@ -1,4 +1,4 @@
-package net.eggc.ryoikumemo
+package net.eggc.ryoikumemo.ui.feature.settings
 
 import android.content.Intent
 import android.net.Uri

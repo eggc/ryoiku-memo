@@ -1,4 +1,4 @@
-package net.eggc.ryoikumemo
+package net.eggc.ryoikumemo.ui.feature.graph
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
