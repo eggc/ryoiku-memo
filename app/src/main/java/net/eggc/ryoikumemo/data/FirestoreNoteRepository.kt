@@ -26,7 +26,9 @@ class FirestoreNoteRepository : NoteRepository {
     override fun getNotesFlow(): Flow<List<Note>> = callbackFlow {
         val subscription = notesCollection.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                Log.e(tag, "getNotesFlow error", error)
+                // close(error) すると収集側でクラッシュするため、ログ出力のみにするか空を流す
+                trySend(emptyList())
                 return@addSnapshotListener
             }
             val isFromCache = snapshot?.metadata?.isFromCache == true
@@ -138,6 +140,9 @@ class FirestoreNoteRepository : NoteRepository {
     private fun timelineCollection(ownerId: String, noteId: String) =
         db.collection("users").document(ownerId).collection("notes").document(noteId).collection("timeline")
 
+    private fun taskCollection(ownerId: String, noteId: String) =
+        db.collection("users").document(ownerId).collection("notes").document(noteId).collection("tasks")
+
     override fun getTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>> = callbackFlow {
         val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
         val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
@@ -152,7 +157,8 @@ class FirestoreNoteRepository : NoteRepository {
 
         val subscription = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                Log.e(tag, "getTimelineItemsForMonthFlow error", error)
+                trySend(emptyList())
                 return@addSnapshotListener
             }
             val isFromCache = snapshot?.metadata?.isFromCache == true
@@ -318,5 +324,47 @@ class FirestoreNoteRepository : NoteRepository {
         val noteName = doc.getString("noteName") ?: return null
 
         return SharedNoteInfo(noteId, ownerId, noteName)
+    }
+
+    override fun getTasksFlow(ownerId: String, noteId: String): Flow<List<Task>> = callbackFlow {
+        val subscription = taskCollection(ownerId, noteId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e(tag, "getTasksFlow error", error)
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val tasks = snapshot?.documents?.mapNotNull { doc ->
+                    Task(
+                        id = doc.id,
+                        name = doc.getString("name") ?: "",
+                        isCompleted = doc.getBoolean("isCompleted") ?: false,
+                        timestamp = doc.getLong("timestamp") ?: 0L
+                    )
+                } ?: emptyList()
+                trySend(tasks)
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    override suspend fun createTask(ownerId: String, noteId: String, name: String): Task {
+        val taskRef = taskCollection(ownerId, noteId).document()
+        val timestamp = System.currentTimeMillis()
+        val taskData = mapOf(
+            "name" to name,
+            "isCompleted" to false,
+            "timestamp" to timestamp
+        )
+        taskRef.set(taskData).await()
+        return Task(taskRef.id, name, false, timestamp)
+    }
+
+    override suspend fun updateTaskProgress(ownerId: String, noteId: String, taskId: String, isCompleted: Boolean) {
+        taskCollection(ownerId, noteId).document(taskId).update("isCompleted", isCompleted).await()
+    }
+
+    override suspend fun deleteTask(ownerId: String, noteId: String, taskId: String) {
+        taskCollection(ownerId, noteId).document(taskId).delete().await()
     }
 }

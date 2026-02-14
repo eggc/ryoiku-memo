@@ -135,4 +135,44 @@ class SharedPreferencesNoteRepository(private val context: Context) : NoteReposi
         // Not implemented for local storage
         return null
     }
+
+    // --- Task management (Simplified local implementation) ---
+
+    private fun taskPrefs(noteId: String) = context.getSharedPreferences("task_prefs_$noteId", Context.MODE_PRIVATE)
+
+    override fun getTasksFlow(ownerId: String, noteId: String): Flow<List<Task>> = flow {
+        val prefs = taskPrefs(noteId)
+        val tasks = prefs.all.mapNotNull { (id, value) ->
+            try {
+                val parts = (value as String).split("|")
+                Task(
+                    id = id,
+                    name = parts[0],
+                    isCompleted = parts[1].toBoolean(),
+                    timestamp = parts[2].toLong()
+                )
+            } catch (e: Exception) { null }
+        }.sortedByDescending { it.timestamp }
+        emit(tasks)
+    }
+
+    override suspend fun createTask(ownerId: String, noteId: String, name: String): Task {
+        val id = UUID.randomUUID().toString()
+        val timestamp = System.currentTimeMillis()
+        val task = Task(id, name, false, timestamp)
+        taskPrefs(noteId).edit().putString(id, "$name|false|$timestamp").apply()
+        return task
+    }
+
+    override suspend fun updateTaskProgress(ownerId: String, noteId: String, taskId: String, isCompleted: Boolean) {
+        val prefs = taskPrefs(noteId)
+        val value = prefs.getString(taskId, null) ?: return
+        val parts = value.split("|").toMutableList()
+        parts[1] = isCompleted.toString()
+        prefs.edit().putString(taskId, parts.joinToString("|")).apply()
+    }
+
+    override suspend fun deleteTask(ownerId: String, noteId: String, taskId: String) {
+        taskPrefs(noteId).edit().remove(taskId).apply()
+    }
 }

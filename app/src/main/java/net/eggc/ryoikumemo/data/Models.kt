@@ -41,3 +41,10 @@ enum class StampType(val label: String, val icon: ImageVector) {
     OUTING("おでかけ", Icons.Default.DirectionsWalk),
     MEMO("メモ", Icons.Default.StickyNote2),
 }
+
+data class Task(
+    val id: String,
+    val name: String,
+    val isCompleted: Boolean,
+    val timestamp: Long
+)
