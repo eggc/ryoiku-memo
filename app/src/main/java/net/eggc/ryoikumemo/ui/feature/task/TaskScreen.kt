@@ -1,4 +1,4 @@
-package net.eggc.ryoikumemo
+package net.eggc.ryoikumemo.ui.feature.task
 
 import android.widget.Toast
 import androidx.compose.foundation.background

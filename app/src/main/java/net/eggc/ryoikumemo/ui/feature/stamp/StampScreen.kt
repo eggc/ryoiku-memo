@@ -52,11 +52,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import net.eggc.ryoikumemo.TaskScreen
 import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.StampType
+import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
