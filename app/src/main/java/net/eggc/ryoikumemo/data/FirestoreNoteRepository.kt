@@ -1,12 +1,11 @@
 package net.eggc.ryoikumemo.data
 
 import android.util.Log
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -15,12 +14,21 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 
-class FirestoreNoteRepository : NoteRepository {
+class FirestoreNoteRepository(
+    private val db: FirebaseFirestore,
+    private val auth: FirebaseAuth
+) : NoteRepository {
     private val tag = "FirestoreRepo"
-    private val db = Firebase.firestore
-    private val userId = Firebase.auth.currentUser?.uid ?: "anonymous"
-    private val userDocRef = db.collection("users").document(userId)
-    private val notesCollection = userDocRef.collection("notes")
+
+    private val userId: String
+        get() = auth.currentUser?.uid ?: "anonymous"
+
+    private val userDocRef
+        get() = db.collection("users").document(userId)
+
+    private val notesCollection
+        get() = userDocRef.collection("notes")
+
     private val sharedNotesCollection = db.collection("sharedNotes")
 
     override fun getNotesFlow(): Flow<List<Note>> = callbackFlow {
@@ -34,13 +42,14 @@ class FirestoreNoteRepository : NoteRepository {
             val isFromCache = snapshot?.metadata?.isFromCache == true
             Log.d(tag, "getNotesFlow: isFromCache = $isFromCache")
 
+            val currentUserId = userId
             val notes = snapshot?.documents?.mapNotNull { doc ->
                 doc.getString("name")?.let { name ->
                     Note(
                         id = doc.id,
                         name = name,
                         sharedId = doc.getString("sharedId"),
-                        ownerId = userId
+                        ownerId = currentUserId
                     )
                 }
             } ?: emptyList()
@@ -52,13 +61,14 @@ class FirestoreNoteRepository : NoteRepository {
     override suspend fun getNotes(): List<Note> {
         Log.d(tag, "API CALL: getNotes()")
         val snapshot = notesCollection.get().await()
+        val currentUserId = userId
         return snapshot.documents.mapNotNull { doc ->
             doc.getString("name")?.let { name ->
                 Note(
                     id = doc.id,
                     name = name,
                     sharedId = doc.getString("sharedId"),
-                    ownerId = userId
+                    ownerId = currentUserId
                 )
             }
         }
@@ -66,6 +76,7 @@ class FirestoreNoteRepository : NoteRepository {
 
     override suspend fun createNote(name: String, sharedId: String?): Note {
         Log.d(tag, "API CALL: createNote($name)")
+        val currentUserId = userId
         val noteRef = notesCollection.document()
         val batch = db.batch()
 
@@ -73,7 +84,7 @@ class FirestoreNoteRepository : NoteRepository {
         if (sharedId != null) {
             noteData["sharedId"] = sharedId
             val sharedNoteData = mapOf(
-                "ownerId" to userId,
+                "ownerId" to currentUserId,
                 "noteId" to noteRef.id,
                 "noteName" to name
             )
@@ -83,7 +94,7 @@ class FirestoreNoteRepository : NoteRepository {
         batch.set(noteRef, noteData)
         batch.commit().await()
 
-        return Note(id = noteRef.id, name = name, sharedId = sharedId, ownerId = userId)
+        return Note(id = noteRef.id, name = name, sharedId = sharedId, ownerId = currentUserId)
     }
 
     override suspend fun updateNote(note: Note) {
@@ -260,7 +271,7 @@ class FirestoreNoteRepository : NoteRepository {
             "timestamp" to timestamp,
             "type" to stampType.name,
             "note" to note,
-            "operatorName" to Firebase.auth.currentUser?.displayName
+            "operatorName" to auth.currentUser?.displayName
         )
         timelineCollection(ownerId, noteId).document(timestamp.toString()).set(stampMap).await()
     }
@@ -270,8 +281,8 @@ class FirestoreNoteRepository : NoteRepository {
         if (stamps.isEmpty()) return
         
         val timeline = timelineCollection(ownerId, noteId)
-        val operatorName = Firebase.auth.currentUser?.displayName
-        
+        val operatorName = auth.currentUser?.displayName
+
         stamps.chunked(500).forEach { chunk ->
             val batch = db.batch()
             chunk.forEach { stamp ->

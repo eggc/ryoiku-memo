@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,7 +58,7 @@ class MainViewModel(context: Context) : ViewModel() {
 
     private fun createRepository(context: Context, user: FirebaseUser?): NoteRepository {
         return if (user != null) {
-            FirestoreNoteRepository()
+            FirestoreNoteRepository(Firebase.firestore, Firebase.auth)
         } else {
             SharedPreferencesNoteRepository(context)
         }
