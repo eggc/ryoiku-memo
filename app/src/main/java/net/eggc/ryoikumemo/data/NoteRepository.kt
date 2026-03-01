@@ -34,10 +34,4 @@ interface NoteRepository {
     suspend fun getSubscribedNoteIds(): List<String>
 
     suspend fun getNoteBySharedId(sharedId: String): SharedNoteInfo?
-
-    // Task management
-    fun getTasksFlow(ownerId: String, noteId: String): Flow<List<Task>>
-    suspend fun createTask(ownerId: String, noteId: String, name: String): Task
-    suspend fun updateTaskProgress(ownerId: String, noteId: String, taskId: String, isCompleted: Boolean)
-    suspend fun deleteTask(ownerId: String, noteId: String, taskId: String)
 }
