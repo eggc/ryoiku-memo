@@ -13,8 +13,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.FirestoreNoteRepository
+import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
+import net.eggc.ryoikumemo.data.FirestoreTaskRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
+import net.eggc.ryoikumemo.data.TaskRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import java.time.LocalDate
@@ -25,8 +29,14 @@ class MainViewModel(context: Context) : ViewModel() {
     private val _currentUser = MutableStateFlow(Firebase.auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
 
-    private val _noteRepository = MutableStateFlow<NoteRepository>(createRepository(context, _currentUser.value))
+    private val _noteRepository = MutableStateFlow<NoteRepository>(createNoteRepository(context, _currentUser.value))
     val noteRepository: StateFlow<NoteRepository> = _noteRepository.asStateFlow()
+
+    private val _timelineRepository = MutableStateFlow<TimelineRepository>(createTimelineRepository(context, _currentUser.value))
+    val timelineRepository: StateFlow<TimelineRepository> = _timelineRepository.asStateFlow()
+
+    private val _taskRepository = MutableStateFlow<TaskRepository>(createTaskRepository(context, _currentUser.value))
+    val taskRepository: StateFlow<TaskRepository> = _taskRepository.asStateFlow()
 
     private val _currentNote = MutableStateFlow<Note?>(null)
     val currentNote: StateFlow<Note?> = _currentNote.asStateFlow()
@@ -49,19 +59,31 @@ class MainViewModel(context: Context) : ViewModel() {
             val user = auth.currentUser
             if (_currentUser.value?.uid != user?.uid) {
                 _currentUser.value = user
-                _noteRepository.value = createRepository(context, user)
+                _noteRepository.value = createNoteRepository(context, user)
+                _timelineRepository.value = createTimelineRepository(context, user)
+                _taskRepository.value = createTaskRepository(context, user)
                 refreshNotes()
             }
         }
         refreshNotes()
     }
 
-    private fun createRepository(context: Context, user: FirebaseUser?): NoteRepository {
+    private fun createNoteRepository(context: Context, user: FirebaseUser?): NoteRepository {
         return if (user != null) {
             FirestoreNoteRepository(Firebase.firestore, Firebase.auth)
         } else {
             SharedPreferencesNoteRepository(context)
         }
+    }
+
+    private fun createTimelineRepository(context: Context, user: FirebaseUser?): TimelineRepository {
+        // 現在 SharedPreferences 版の TimelineRepository は未実装のため、Firestore 版を返すか、
+        // 必要に応じて SharedPreferences 版を作成する必要があります。
+        return FirestoreTimelineRepository(Firebase.firestore, Firebase.auth)
+    }
+
+    private fun createTaskRepository(context: Context, user: FirebaseUser?): TaskRepository {
+        return FirestoreTaskRepository(Firebase.firestore)
     }
 
     fun refreshNotes() {
@@ -124,9 +146,9 @@ class MainViewModel(context: Context) : ViewModel() {
 
     fun setEditingStampById(stampId: Long) {
         val note = _currentNote.value ?: return
-        val repo = _noteRepository.value
+        val timelineRepo = _timelineRepository.value
         viewModelScope.launch {
-            val item = repo.getStampItem(note.ownerId, note.id, stampId)
+            val item = timelineRepo.getStampItem(note.ownerId, note.id, stampId)
             _editingStamp.value = item
         }
     }
@@ -134,11 +156,11 @@ class MainViewModel(context: Context) : ViewModel() {
     fun saveEditedStamp(timestamp: Long, noteText: String) {
         val currentStamp = _editingStamp.value ?: return
         val note = _currentNote.value ?: return
-        val repo = _noteRepository.value
+        val timelineRepo = _timelineRepository.value
 
         viewModelScope.launch {
-            repo.deleteTimelineItem(note.ownerId, note.id, currentStamp)
-            repo.saveStamp(note.ownerId, note.id, currentStamp.type, noteText, timestamp)
+            timelineRepo.deleteTimelineItem(note.ownerId, note.id, currentStamp)
+            timelineRepo.saveStamp(note.ownerId, note.id, currentStamp.type, noteText, timestamp)
             _editingStamp.value = null
         }
     }

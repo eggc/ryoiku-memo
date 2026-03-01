@@ -51,6 +51,7 @@ import net.eggc.ryoikumemo.data.CsvExportManager
 import net.eggc.ryoikumemo.data.CsvImportManager
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
 
 
 @Composable
@@ -59,6 +60,7 @@ fun SettingsScreen(
     currentUser: FirebaseUser?,
     notes: List<Note>,
     noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
     onLogoutClick: () -> Unit,
     onLoginClick: () -> Unit,
     onTermsClick: () -> Unit,
@@ -74,8 +76,8 @@ fun SettingsScreen(
     var noteToExport by remember { mutableStateOf<Note?>(null) }
     var noteToImport by remember { mutableStateOf<Note?>(null) }
 
-    val csvImportManager = remember(noteRepository) { CsvImportManager(context, noteRepository) }
-    val csvExportManager = remember(noteRepository) { CsvExportManager(context, noteRepository) }
+    val csvImportManager = remember(timelineRepository) { CsvImportManager(context, timelineRepository) }
+    val csvExportManager = remember(timelineRepository) { CsvExportManager(context, timelineRepository) }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")

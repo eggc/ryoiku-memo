@@ -72,6 +72,8 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
     val currentDestination by viewModel.currentDestination.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val noteRepository by viewModel.noteRepository.collectAsState()
+    val timelineRepository by viewModel.timelineRepository.collectAsState()
+    val taskRepository by viewModel.taskRepository.collectAsState()
     val currentNote by viewModel.currentNote.collectAsState()
     val allNotes by viewModel.allNotes.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
@@ -85,7 +87,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
             stampType = editingStamp!!.type,
             initialTimestamp = editingStamp!!.timestamp,
             initialNote = editingStamp!!.note,
-            noteRepository = noteRepository,
+            timelineRepository = timelineRepository,
             note = currentNote!!,
             onDismiss = { viewModel.setEditingStamp(null) },
             onConfirm = { timestamp, noteText ->
@@ -163,7 +165,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                 when (currentDestination) {
                     AppDestinations.TIMELINE -> TimelineScreen(
                         modifier = Modifier.padding(innerPadding),
-                        noteRepository = noteRepository,
+                        timelineRepository = timelineRepository,
                         note = currentNote!!,
                         currentMonth = selectedMonth,
                         onMonthChange = { viewModel.setMonth(it) },
@@ -174,7 +176,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
 
                     AppDestinations.REVIEW -> ReviewScreen(
                         modifier = Modifier.padding(innerPadding),
-                        noteRepository = noteRepository,
+                        timelineRepository = timelineRepository,
                         note = currentNote!!,
                         currentMonth = selectedMonth,
                         onMonthChange = { viewModel.setMonth(it) }
@@ -183,6 +185,8 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                     AppDestinations.STAMP -> StampScreen(
                         modifier = Modifier.padding(innerPadding),
                         noteRepository = noteRepository,
+                        timelineRepository = timelineRepository,
+                        taskRepository = taskRepository,
                         note = currentNote!!,
                         onStampSaved = { /* なにもしない（きろくタブに留まる） */ }
                     )
@@ -208,6 +212,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         currentUser = currentUser,
                         notes = allNotes,
                         noteRepository = noteRepository,
+                        timelineRepository = timelineRepository,
                         onLogoutClick = {
                             Firebase.auth.signOut()
                             val intent = Intent(context, AuthActivity::class.java)

@@ -3,7 +3,6 @@ package net.eggc.ryoikumemo.ui.feature.review
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -15,7 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.ui.components.MonthSelector
 import net.eggc.ryoikumemo.ui.feature.graph.GraphMonthPage
 import java.time.LocalDate
@@ -27,7 +26,7 @@ private val BASE_MONTH = LocalDate.of(2020, 1, 1)
 @Composable
 fun ReviewScreen(
     modifier: Modifier = Modifier,
-    noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
     note: Note,
     currentMonth: LocalDate,
     onMonthChange: (LocalDate) -> Unit
@@ -66,7 +65,7 @@ fun ReviewScreen(
         ) { page ->
             val month = BASE_MONTH.plusMonths(page.toLong())
             GraphMonthPage(
-                noteRepository = noteRepository,
+                timelineRepository = timelineRepository,
                 note = note,
                 month = month
             )

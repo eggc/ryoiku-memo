@@ -33,6 +33,8 @@ import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
+import net.eggc.ryoikumemo.data.TaskRepository
 import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
 
@@ -41,6 +43,8 @@ import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
 fun StampScreen(
     modifier: Modifier = Modifier,
     noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
+    taskRepository: TaskRepository,
     note: Note?,
     onStampSaved: () -> Unit
 ) {
@@ -60,12 +64,12 @@ fun StampScreen(
     if (selectedStampType != null && note != null) {
         EditStampDialog(
             stampType = selectedStampType!!,
-            noteRepository = noteRepository,
+            timelineRepository = timelineRepository,
             note = note,
             onDismiss = { selectedStampType = null },
             onConfirm = { timestamp, noteText ->
                 coroutineScope.launch {
-                    noteRepository.saveStamp(note.ownerId, note.id, selectedStampType!!, noteText, timestamp)
+                    timelineRepository.saveStamp(note.ownerId, note.id, selectedStampType!!, noteText, timestamp)
                     Toast.makeText(context, "${selectedStampType!!.label}を記録しました", Toast.LENGTH_SHORT).show()
                     selectedStampType = null
                     onStampSaved()
@@ -157,7 +161,7 @@ fun StampScreen(
         } else if (note != null) {
             // タスク画面
             TaskScreen(
-                noteRepository = noteRepository,
+                taskRepository = taskRepository,
                 note = note,
                 modifier = Modifier.weight(1f)
             )

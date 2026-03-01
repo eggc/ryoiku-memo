@@ -41,7 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.data.StampType
 import java.time.Instant
 import java.time.ZoneId
@@ -54,7 +54,7 @@ fun EditStampDialog(
     stampType: StampType,
     initialTimestamp: Long = System.currentTimeMillis(),
     initialNote: String = "",
-    noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
     note: Note,
     onDismiss: () -> Unit,
     onConfirm: (Long, String) -> Unit
@@ -68,7 +68,7 @@ fun EditStampDialog(
 
     LaunchedEffect(stampType) {
         if (stampType != StampType.MEMO) {
-            suggestions = noteRepository.getStampNoteSuggestions(note.ownerId, note.id, stampType).take(5)
+            suggestions = timelineRepository.getStampNoteSuggestions(note.ownerId, note.id, stampType).take(5)
         }
     }
 
@@ -192,7 +192,7 @@ fun EditStampDialog(
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
-                        
+
                         if (suggestionsExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 suggestions.forEach { suggestion ->

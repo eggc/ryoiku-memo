@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter
 
 class CsvExportManager(
     private val context: Context,
-    private val noteRepository: NoteRepository
+    private val timelineRepository: TimelineRepository
 ) {
     private val tag = "CsvExportManager"
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -19,7 +19,7 @@ class CsvExportManager(
         Log.d(tag, "Starting CSV export for note: ${targetNote.name} (ID: ${targetNote.id})")
         return try {
             Log.d(tag, "Fetching all stamp items from repository...")
-            val stamps = noteRepository.getAllStampItems(targetNote.ownerId, targetNote.id)
+            val stamps = timelineRepository.getAllStampItems(targetNote.ownerId, targetNote.id)
             Log.d(tag, "Fetched ${stamps.size} stamps.")
 
             val csvContent = buildString {

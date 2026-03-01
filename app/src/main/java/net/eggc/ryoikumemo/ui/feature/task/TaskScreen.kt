@@ -44,32 +44,32 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TaskRepository
 import net.eggc.ryoikumemo.data.Task
 
 @Composable
 fun TaskScreen(
     modifier: Modifier = Modifier,
-    noteRepository: NoteRepository,
+    taskRepository: TaskRepository,
     note: Note
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    
+
     // 初期読み込み状態を null で表現
     val tasks by remember(note.id) {
-        noteRepository.getTasksFlow(note.ownerId, note.id)
+        taskRepository.getTasksFlow(note.ownerId, note.id)
     }.collectAsState(initial = null)
 
     var newTaskName by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
-    
+
     val listState = rememberLazyListState()
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Text(text = "タスク管理", style = MaterialTheme.typography.headlineSmall)
-            
+
             Spacer(modifier = Modifier.padding(vertical = 8.dp))
 
             // タスク入力エリア
@@ -92,7 +92,7 @@ fun TaskScreen(
                         coroutineScope.launch {
                             isProcessing = true
                             try {
-                                noteRepository.createTask(note.ownerId, note.id, newTaskName)
+                                taskRepository.createTask(note.ownerId, note.id, newTaskName)
                                 newTaskName = ""
                                 // 追加後に先頭へスクロール
                                 listState.animateScrollToItem(0)
@@ -142,7 +142,7 @@ fun TaskScreen(
                                     coroutineScope.launch {
                                         isProcessing = true
                                         try {
-                                            noteRepository.updateTaskProgress(note.ownerId, note.id, task.id, !task.isCompleted)
+                                            taskRepository.updateTaskProgress(note.ownerId, note.id, task.id, !task.isCompleted)
                                         } finally {
                                             isProcessing = false
                                         }
@@ -152,7 +152,7 @@ fun TaskScreen(
                                     coroutineScope.launch {
                                         isProcessing = true
                                         try {
-                                            noteRepository.deleteTask(note.ownerId, note.id, task.id)
+                                            taskRepository.deleteTask(note.ownerId, note.id, task.id)
                                         } finally {
                                             isProcessing = false
                                         }
@@ -190,9 +190,9 @@ fun TaskItem(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (task.isCompleted) 
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
-            else 
+            containerColor = if (task.isCompleted)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            else
                 MaterialTheme.colorScheme.surface
         )
     ) {
@@ -212,7 +212,7 @@ fun TaskItem(
                     tint = if (task.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                 )
             }
-            
+
             Text(
                 text = task.name,
                 modifier = Modifier.weight(1f),

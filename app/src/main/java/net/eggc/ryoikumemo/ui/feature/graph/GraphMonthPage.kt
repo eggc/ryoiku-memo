@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
 import java.time.Instant
@@ -34,13 +34,12 @@ import java.time.temporal.ChronoUnit
 
 @Composable
 fun GraphMonthPage(
-    noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
     note: Note,
     month: LocalDate
 ) {
-    // addSnapshotListener を利用した Flow に変更
     val timelineItems by remember(note.id, month) {
-        noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
+        timelineRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
 
     val sleepData = remember(timelineItems) {
@@ -130,7 +129,7 @@ private fun SleepChartHeader(yAxisLabelWidth: Dp, rightPadding: Dp, headerHeight
         .fillMaxWidth()
         .height(headerHeight)
         .padding(horizontal = 8.dp)
-    ) { 
+    ) {
         val canvasWidth = size.width
         val graphWidth = canvasWidth - yAxisLabelWidth.toPx() - rightPadding.toPx()
 
@@ -167,7 +166,7 @@ private fun SleepChartBody(
     Canvas(modifier = Modifier
         .fillMaxWidth()
         .height(totalCanvasHeight)
-        .padding(8.dp)) { 
+        .padding(8.dp)) {
         val canvasWidth = size.width
         val graphWidth = canvasWidth - yAxisLabelWidth.toPx() - rightPadding.toPx()
         val dayHeightPx = dayHeight.toPx()

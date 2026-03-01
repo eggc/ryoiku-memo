@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter
 
 class CsvImportManager(
     private val context: Context,
-    private val noteRepository: NoteRepository
+    private val timelineRepository: TimelineRepository
 ) {
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -65,7 +65,7 @@ class CsvImportManager(
 
             // 100件ずつのチャンクに分けて一括保存を実行
             stampsToSave.chunked(100).forEach { chunk ->
-                noteRepository.saveStamps(targetNote.ownerId, targetNote.id, chunk)
+                timelineRepository.saveStamps(targetNote.ownerId, targetNote.id, chunk)
             }
 
             Result.success(stampsToSave.size)

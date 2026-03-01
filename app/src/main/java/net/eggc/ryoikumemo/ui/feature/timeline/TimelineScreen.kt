@@ -56,7 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.Note
-import net.eggc.ryoikumemo.data.NoteRepository
+import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
 import net.eggc.ryoikumemo.data.TimelineItem
@@ -76,7 +76,7 @@ private val BASE_MONTH = LocalDate.of(2020, 1, 1)
 @Composable
 fun TimelineScreen(
     modifier: Modifier = Modifier,
-    noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
     note: Note,
     currentMonth: LocalDate,
     onMonthChange: (LocalDate) -> Unit,
@@ -89,13 +89,10 @@ fun TimelineScreen(
 
     val context = LocalContext.current
     val appPreferences = remember { AppPreferences(context) }
-    // カスタマイズ設定（非表示スタンプ）を取得
     val hiddenStampTypes = remember { appPreferences.getHiddenStampTypes() }
 
-    // フィルター状態を保持
     var selectedFilters by remember { mutableStateOf(setOf<StampType>()) }
 
-    // Sync pager -> external state
     LaunchedEffect(pagerState.currentPage) {
         val month = BASE_MONTH.plusMonths(pagerState.currentPage.toLong())
         if (!month.isEqual(currentMonth.withDayOfMonth(1))) {
@@ -103,7 +100,6 @@ fun TimelineScreen(
         }
     }
 
-    // Sync external state -> pager
     LaunchedEffect(currentMonth) {
         val page = ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt()
         if (pagerState.currentPage != page) {
@@ -146,7 +142,6 @@ fun TimelineScreen(
             onMonthClick = { showJumpDatePicker = true }
         )
 
-        // フィルター UI（非表示のものは除外）
         TimelineFilterBar(
             selectedFilters = selectedFilters,
             hiddenStampTypes = hiddenStampTypes,
@@ -159,7 +154,7 @@ fun TimelineScreen(
         ) { page ->
             val month = BASE_MONTH.plusMonths(page.toLong())
             TimelineMonthPage(
-                noteRepository = noteRepository,
+                timelineRepository = timelineRepository,
                 note = note,
                 month = month,
                 selectedFilters = selectedFilters,
@@ -178,7 +173,6 @@ fun TimelineFilterBar(
     hiddenStampTypes: Set<String>,
     onFilterChange: (Set<StampType>) -> Unit
 ) {
-    // 表示対象のスタンプのみを抽出
     val filterOptions = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
 
     LazyRow(
@@ -221,7 +215,7 @@ fun TimelineFilterBar(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TimelineMonthPage(
-    noteRepository: NoteRepository,
+    timelineRepository: TimelineRepository,
     note: Note,
     month: LocalDate,
     selectedFilters: Set<StampType>,
@@ -233,9 +227,8 @@ fun TimelineMonthPage(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // addSnapshotListener を利用した Flow
     val timelineItems by remember(note.id, month) {
-        noteRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
+        timelineRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
 
     var isRefreshing by remember { mutableStateOf(false) }
@@ -254,7 +247,6 @@ fun TimelineMonthPage(
         }
     }
 
-    // Handle jump to specific date within the month
     LaunchedEffect(targetDate, timelineItems) {
         if (targetDate != null && timelineItems != null && groupedItems.isNotEmpty()) {
             val availableDates = groupedItems.keys.sortedDescending()
@@ -282,7 +274,7 @@ fun TimelineMonthPage(
                     onClick = {
                         coroutineScope.launch {
                             try {
-                                noteRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
+                                timelineRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
@@ -314,7 +306,7 @@ fun TimelineMonthPage(
                 coroutineScope.launch {
                     isRefreshing = true
                     try {
-                        noteRepository.getTimelineItemsForMonth(note.ownerId, note.id, note.sharedId, month)
+                        timelineRepository.getTimelineItemsForMonth(note.ownerId, note.id, month)
                     } finally {
                         delay(500)
                         isRefreshing = false
