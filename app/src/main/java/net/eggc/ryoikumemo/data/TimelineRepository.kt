@@ -1,0 +1,15 @@
+package net.eggc.ryoikumemo.data
+
+import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
+
+interface TimelineRepository {
+    fun getTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>>
+    suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, dateInMonth: LocalDate): List<TimelineItem>
+    suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem>
+    suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem?
+    suspend fun getStampNoteSuggestions(ownerId: String, noteId: String, type: StampType): List<String>
+    suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long = System.currentTimeMillis())
+    suspend fun saveStamps(ownerId: String, noteId: String, stamps: List<StampItem>)
+    suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem)
+}
