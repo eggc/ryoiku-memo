@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -31,38 +32,10 @@ class FirestoreNoteRepository(
 
     private val sharedNotesCollection = db.collection("sharedNotes")
 
-    override fun getNotesFlow(): Flow<List<Note>> = callbackFlow {
-        val subscription = notesCollection.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.e(tag, "getNotesFlow error", error)
-                // close(error) すると収集側でクラッシュするため、ログ出力のみにするか空を流す
-                trySend(emptyList())
-                return@addSnapshotListener
-            }
-            val isFromCache = snapshot?.metadata?.isFromCache == true
-            Log.d(tag, "getNotesFlow: isFromCache = $isFromCache")
+    // --- Mappers (Private) ---
 
-            val currentUserId = userId
-            val notes = snapshot?.documents?.mapNotNull { doc ->
-                doc.getString("name")?.let { name ->
-                    Note(
-                        id = doc.id,
-                        name = name,
-                        sharedId = doc.getString("sharedId"),
-                        ownerId = currentUserId
-                    )
-                }
-            } ?: emptyList()
-            trySend(notes)
-        }
-        awaitClose { subscription.remove() }
-    }
-
-    override suspend fun getNotes(): List<Note> {
-        Log.d(tag, "API CALL: getNotes()")
-        val snapshot = notesCollection.get().await()
-        val currentUserId = userId
-        return snapshot.documents.mapNotNull { doc ->
+    private fun mapSnapshotToNotes(snapshot: QuerySnapshot?, currentUserId: String): List<Note> {
+        return snapshot?.documents?.mapNotNull { doc ->
             doc.getString("name")?.let { name ->
                 Note(
                     id = doc.id,
@@ -71,7 +44,57 @@ class FirestoreNoteRepository(
                     ownerId = currentUserId
                 )
             }
+        } ?: emptyList()
+    }
+
+    private fun mapSnapshotToTimelineItems(snapshot: QuerySnapshot?): List<TimelineItem> {
+        return snapshot?.documents?.mapNotNull { doc ->
+            when (doc.getString("itemType")) {
+                "stamp" -> StampItem(
+                    timestamp = doc.getLong("timestamp") ?: 0L,
+                    type = try {
+                        StampType.valueOf(doc.getString("type") ?: "")
+                    } catch (e: Exception) {
+                        StampType.MEMO
+                    },
+                    note = doc.getString("note") ?: "",
+                    operatorName = doc.getString("operatorName")
+                )
+                else -> null
+            }
+        } ?: emptyList()
+    }
+
+    private fun mapSnapshotToTasks(snapshot: QuerySnapshot?): List<Task> {
+        return snapshot?.documents?.mapNotNull { doc ->
+            Task(
+                id = doc.id,
+                name = doc.getString("name") ?: "",
+                isCompleted = doc.getBoolean("isCompleted") ?: false,
+                timestamp = doc.getLong("timestamp") ?: 0L
+            )
+        } ?: emptyList()
+    }
+
+    // --- Repository Implementations ---
+
+    override fun getNotesFlow(): Flow<List<Note>> = callbackFlow {
+        val currentUserId = userId
+        val subscription = notesCollection.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e(tag, "getNotesFlow error", error)
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
+            trySend(mapSnapshotToNotes(snapshot, currentUserId))
         }
+        awaitClose { subscription.remove() }
+    }
+
+    override suspend fun getNotes(): List<Note> {
+        Log.d(tag, "API CALL: getNotes()")
+        val snapshot = notesCollection.get().await()
+        return mapSnapshotToNotes(snapshot, userId)
     }
 
     override suspend fun createNote(name: String, sharedId: String?): Note {
@@ -172,21 +195,7 @@ class FirestoreNoteRepository(
                 trySend(emptyList())
                 return@addSnapshotListener
             }
-            val isFromCache = snapshot?.metadata?.isFromCache == true
-            Log.d(tag, "getTimelineItemsForMonthFlow: isFromCache = $isFromCache")
-
-            val items = snapshot?.documents?.mapNotNull { doc ->
-                when (doc.getString("itemType")) {
-                    "stamp" -> StampItem(
-                        timestamp = doc.getLong("timestamp")!!,
-                        type = StampType.valueOf(doc.getString("type")!!),
-                        note = doc.getString("note")!!,
-                        operatorName = doc.getString("operatorName")
-                    )
-                    else -> null
-                }
-            } ?: emptyList()
-            trySend(items)
+            trySend(mapSnapshotToTimelineItems(snapshot))
         }
         awaitClose { subscription.remove() }
     }
@@ -206,17 +215,7 @@ class FirestoreNoteRepository(
             .get()
             .await()
 
-        return snapshot.documents.mapNotNull { doc ->
-            when (doc.getString("itemType")) {
-                "stamp" -> StampItem(
-                    timestamp = doc.getLong("timestamp")!!,
-                    type = StampType.valueOf(doc.getString("type")!!),
-                    note = doc.getString("note")!!,
-                    operatorName = doc.getString("operatorName")
-                )
-                else -> null
-            }
-        }
+        return mapSnapshotToTimelineItems(snapshot)
     }
 
     override suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem> {
@@ -227,14 +226,8 @@ class FirestoreNoteRepository(
             .get()
             .await()
 
-        return snapshot.documents.mapNotNull { doc ->
-            StampItem(
-                timestamp = doc.getLong("timestamp")!!,
-                type = StampType.valueOf(doc.getString("type")!!),
-                note = doc.getString("note")!!,
-                operatorName = doc.getString("operatorName")
-            )
-        }
+        @Suppress("UNCHECKED_CAST")
+        return mapSnapshotToTimelineItems(snapshot) as List<StampItem>
     }
 
     override suspend fun getStampItem(ownerId: String, noteId: String, timestamp: Long): StampItem? {
@@ -242,9 +235,13 @@ class FirestoreNoteRepository(
         val doc = timelineCollection(ownerId, noteId).document(timestamp.toString()).get().await()
         if (!doc.exists()) return null
         return StampItem(
-            timestamp = doc.getLong("timestamp")!!,
-            type = StampType.valueOf(doc.getString("type")!!),
-            note = doc.getString("note")!!,
+            timestamp = doc.getLong("timestamp") ?: 0L,
+            type = try {
+                StampType.valueOf(doc.getString("type") ?: "")
+            } catch (e: Exception) {
+                StampType.MEMO
+            },
+            note = doc.getString("note") ?: "",
             operatorName = doc.getString("operatorName")
         )
     }
@@ -279,7 +276,7 @@ class FirestoreNoteRepository(
     override suspend fun saveStamps(ownerId: String, noteId: String, stamps: List<StampItem>) {
         Log.d(tag, "API CALL: saveStamps(count: ${stamps.size})")
         if (stamps.isEmpty()) return
-        
+
         val timeline = timelineCollection(ownerId, noteId)
         val operatorName = auth.currentUser?.displayName
 
@@ -346,15 +343,7 @@ class FirestoreNoteRepository(
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
-                val tasks = snapshot?.documents?.mapNotNull { doc ->
-                    Task(
-                        id = doc.id,
-                        name = doc.getString("name") ?: "",
-                        isCompleted = doc.getBoolean("isCompleted") ?: false,
-                        timestamp = doc.getLong("timestamp") ?: 0L
-                    )
-                } ?: emptyList()
-                trySend(tasks)
+                trySend(mapSnapshotToTasks(snapshot))
             }
         awaitClose { subscription.remove() }
     }
