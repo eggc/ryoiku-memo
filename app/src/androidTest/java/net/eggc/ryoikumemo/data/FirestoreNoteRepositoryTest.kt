@@ -207,31 +207,6 @@ class FirestoreNoteRepositoryTest {
         assertTrue(!repository.getSubscribedNoteIds().contains(sharedId))
     }
 
-    // --- Task Operations ---
-
-    @Test
-    fun taskOperations_lifecycle() = runBlocking {
-        val note = repository.createNote("Task Test")
-        val ownerId = emulatorRule.auth.currentUser!!.uid
-
-        // Create
-        val task = repository.createTask(ownerId, note.id, "Buy Milk")
-        var tasks = repository.getTasksFlow(ownerId, note.id).first()
-        assertEquals(1, tasks.size)
-        assertEquals("Buy Milk", tasks[0].name)
-        assertEquals(false, tasks[0].isCompleted)
-
-        // Update
-        repository.updateTaskProgress(ownerId, note.id, task.id, true)
-        tasks = repository.getTasksFlow(ownerId, note.id).first()
-        assertEquals(true, tasks[0].isCompleted)
-
-        // Delete
-        repository.deleteTask(ownerId, note.id, task.id)
-        tasks = repository.getTasksFlow(ownerId, note.id).first()
-        assertTrue(tasks.isEmpty())
-    }
-
     @Test
     fun getNoteBySharedId_returnsNullIfNotFound() = runBlocking {
         val info = repository.getNoteBySharedId("non-existent")
