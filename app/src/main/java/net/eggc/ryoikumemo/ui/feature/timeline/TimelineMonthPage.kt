@@ -206,6 +206,10 @@ fun TimelineMonthPage(
                             }
                         }
                     }
+                    // フローティングボタンに隠れないための余白を追加
+                    item {
+                        Spacer(modifier = Modifier.height(80.dp))
+                    }
                 }
             }
         }
