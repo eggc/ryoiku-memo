@@ -104,7 +104,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                if (currentDestination != AppDestinations.EDIT_STAMP) {
+                if (currentDestination != AppDestinations.EDIT_STAMP && currentDestination != AppDestinations.STAMP_ADD) {
                     TopAppBar(
                         title = {
                             Row(
@@ -182,6 +182,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         modifier = Modifier.padding(innerPadding),
                         timelineRepository = timelineRepository,
                         note = currentNote!!,
+                        onBack = { viewModel.navigateTo(AppDestinations.TIMELINE) },
                         onStampSaved = {
                             viewModel.navigateTo(AppDestinations.TIMELINE)
                         },
@@ -196,7 +197,14 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                                 stampItem = editingStamp!!,
                                 timelineRepository = timelineRepository,
                                 note = currentNote!!,
-                                onBack = { viewModel.navigateTo(AppDestinations.TIMELINE) },
+                                onBack = {
+                                    // 新規追加からの編集なら追加画面へ、直接編集ならタイムラインへ
+                                    if (viewModel.isEditingExisting.value) {
+                                        viewModel.navigateTo(AppDestinations.TIMELINE)
+                                    } else {
+                                        viewModel.navigateTo(AppDestinations.STAMP_ADD)
+                                    }
+                                },
                                 onSave = { timestamp, noteText ->
                                     viewModel.saveStamp(timestamp, noteText)
                                     Toast.makeText(context, "保存しました", Toast.LENGTH_SHORT).show()

@@ -9,12 +9,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +40,7 @@ fun StampAddScreen(
     modifier: Modifier = Modifier,
     timelineRepository: TimelineRepository,
     note: Note?,
+    onBack: () -> Unit,
     onStampSaved: () -> Unit,
     onStampSelected: (StampType) -> Unit
 ) {
@@ -46,63 +52,77 @@ fun StampAddScreen(
 
     val visibleStampTypes = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.End
-        ) {
-            if (isCustomizing) {
-                TextButton(onClick = {
-                    appPreferences.saveHiddenStampTypes(hiddenStampTypes)
-                    isCustomizing = false
-                }) {
-                    Text("完了")
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("記録を選択") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
+                    }
                 }
-            } else {
-                TextButton(onClick = { isCustomizing = true }) {
-                    Text("カスタマイズ")
+            )
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (isCustomizing) {
+                    TextButton(onClick = {
+                        appPreferences.saveHiddenStampTypes(hiddenStampTypes)
+                        isCustomizing = false
+                    }) {
+                        Text("完了")
+                    }
+                } else {
+                    TextButton(onClick = { isCustomizing = true }) {
+                        Text("カスタマイズ")
+                    }
                 }
             }
-        }
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 128.dp),
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val itemsToShow = if (isCustomizing) StampType.entries else visibleStampTypes
-            items(itemsToShow) { stampType ->
-                Card(
-                    modifier = Modifier.padding(8.dp),
-                    onClick = {
-                        if (!isCustomizing && note != null) {
-                            onStampSelected(stampType)
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 128.dp),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val itemsToShow = if (isCustomizing) StampType.entries else visibleStampTypes
+                items(itemsToShow) { stampType ->
+                    Card(
+                        modifier = Modifier.padding(8.dp),
+                        onClick = {
+                            if (!isCustomizing && note != null) {
+                                onStampSelected(stampType)
+                            }
                         }
-                    }
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp)
                     ) {
-                        Icon(stampType.icon, contentDescription = stampType.label)
-                        Text(stampType.label)
-                        if (isCustomizing) {
-                            Switch(
-                                checked = !hiddenStampTypes.contains(stampType.name),
-                                onCheckedChange = { isChecked ->
-                                    hiddenStampTypes = if (isChecked) {
-                                        hiddenStampTypes - stampType.name
-                                    } else {
-                                        hiddenStampTypes + stampType.name
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth().padding(16.dp)
+                        ) {
+                            Icon(stampType.icon, contentDescription = stampType.label)
+                            Text(stampType.label)
+                            if (isCustomizing) {
+                                Switch(
+                                    checked = !hiddenStampTypes.contains(stampType.name),
+                                    onCheckedChange = { isChecked ->
+                                        hiddenStampTypes = if (isChecked) {
+                                            hiddenStampTypes - stampType.name
+                                        } else {
+                                            hiddenStampTypes + stampType.name
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
