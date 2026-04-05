@@ -3,14 +3,18 @@ package net.eggc.ryoikumemo.ui.feature.timeline
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -149,54 +153,65 @@ fun TimelineMonthPage(
             },
             modifier = Modifier.fillMaxSize()
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState
-            ) {
-                if (groupedItems.isEmpty()) {
-                    item {
-                        Text(
-                            text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                } else {
-                    groupedItems.forEach { (date, items) ->
-                        stickyHeader(key = "header_${date}") {
-                            Surface(
-                                modifier = Modifier
-                                    .fillParentMaxWidth()
-                                    .clickable { onDateClick() },
-                                color = MaterialTheme.colorScheme.primaryContainer
-                                    .copy(alpha = 0.95f)
-                            ) {
-                                Text(
-                                    text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
-                                )
-                            }
+            // 背景の列色を画面全体に敷くためのBox
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 時刻列の背景色
+                Box(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                )
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState
+                ) {
+                    if (groupedItems.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
+                                modifier = Modifier.padding(16.dp).padding(start = 52.dp)
+                            )
                         }
-                        items(items, key = {
-                            "stamp_${it.timestamp}"
-                        }) { item ->
-                            if (item is StampItem) {
-                                Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                    TimelineItemCard(
-                                        timestamp = item.timestamp,
-                                        stampType = item.type,
-                                        note = item.note,
-                                        operatorName = item.operatorName,
-                                        onEditClick = { onEditStampClick(item.timestamp) },
-                                        onDeleteClick = { showDeleteDialogFor = item }
+                    } else {
+                        groupedItems.forEach { (date, items) ->
+                            stickyHeader(key = "header_${date}") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillParentMaxWidth()
+                                        .clickable { onDateClick() },
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                        .copy(alpha = 0.95f)
+                                ) {
+                                    Text(
+                                        text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                                     )
                                 }
                             }
+                            items(items, key = {
+                                "stamp_${it.timestamp}"
+                            }) { item ->
+                                if (item is StampItem) {
+                                    Column(modifier = Modifier.padding(horizontal = 0.dp)) {
+                                        TimelineItemCard(
+                                            timestamp = item.timestamp,
+                                            stampType = item.type,
+                                            note = item.note,
+                                            operatorName = item.operatorName,
+                                            onEditClick = { onEditStampClick(item.timestamp) },
+                                            onDeleteClick = { showDeleteDialogFor = item }
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    }
-                    // フローティングボタンに隠れないための余白を追加
-                    item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        // フローティングボタンに隠れないための余白を追加
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
                     }
                 }
             }
