@@ -14,6 +14,48 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Create dummy google-services.json
+        run: |
+          echo '{
+            "project_info": {
+              "project_number": "123456789",
+              "project_id": "dummy-project",
+              "storage_bucket": "dummy.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789:android:123456789",
+                  "android_client_info": {
+                    "package_name": "net.eggc.ryoikumemo"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "dummy-key"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "status": 1
+                  },
+                  "auth_setting": {
+                    "google_signin_service": {
+                      "status": 2
+                    }
+                  }
+                },
+                "oauth_client": [
+                  {
+                    "client_id": "dummy-client-id.apps.googleusercontent.com",
+                    "client_type": 3
+                  }
+                ]
+              }
+            ],
+            "configuration_version": "1"
+          }' > app/google-services.json
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
