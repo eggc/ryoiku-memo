@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,10 +20,8 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -116,20 +113,9 @@ fun TimelineScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddStampClick,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("新規追加") },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        },
-        floatingActionButtonPosition = FabPosition.End
-    ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
+    // 二重 Scaffold を解消するために Box で FAB を浮かせる
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             MonthSelector(
                 currentMonth = currentMonth,
                 onMonthChange = onMonthChange,
@@ -159,6 +145,17 @@ fun TimelineScreen(
                 )
             }
         }
+
+        ExtendedFloatingActionButton(
+            onClick = onAddStampClick,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            text = { Text("新規追加") },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }
 
