@@ -23,6 +23,7 @@ import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
 import java.time.LocalDate
+import java.util.Stack
 
 class MainViewModel(context: Context) : ViewModel() {
     private val appPreferences = AppPreferences(context)
@@ -50,6 +51,8 @@ class MainViewModel(context: Context) : ViewModel() {
 
     private val _currentDestination = MutableStateFlow(AppDestinations.TIMELINE)
     val currentDestination: StateFlow<AppDestinations> = _currentDestination.asStateFlow()
+
+    private val navigationHistory = Stack<AppDestinations>()
 
     private val _editingStamp = MutableStateFlow<StampItem?>(null)
     val editingStamp: StateFlow<StampItem?> = _editingStamp.asStateFlow()
@@ -81,8 +84,6 @@ class MainViewModel(context: Context) : ViewModel() {
     }
 
     private fun createTimelineRepository(context: Context, user: FirebaseUser?): TimelineRepository {
-        // 現在 SharedPreferences 版の TimelineRepository は未実装のため、Firestore 版を返すか、
-        // 必要に応じて SharedPreferences 版を作成する必要があります。
         return FirestoreTimelineRepository(Firebase.firestore, Firebase.auth)
     }
 
@@ -115,7 +116,6 @@ class MainViewModel(context: Context) : ViewModel() {
             _currentNote.value = finalNote
             appPreferences.saveLastSelectedNote(finalNote)
 
-            // ノートが全くなかった場合に新規作成された可能性があるので再取得
             if (ownNotes.isEmpty() && validatedNote == null) {
                 _allNotes.value = repo.getNotes()
             }
@@ -125,7 +125,7 @@ class MainViewModel(context: Context) : ViewModel() {
     fun selectNote(note: Note) {
         _currentNote.value = note
         appPreferences.saveLastSelectedNote(note)
-        _currentDestination.value = AppDestinations.TIMELINE
+        navigateTo(AppDestinations.TIMELINE)
     }
 
     fun updateCurrentNote(note: Note) {
@@ -138,10 +138,24 @@ class MainViewModel(context: Context) : ViewModel() {
     }
 
     fun navigateTo(destination: AppDestinations) {
-        _currentDestination.value = destination
+        if (_currentDestination.value != destination) {
+            navigationHistory.push(_currentDestination.value)
+            _currentDestination.value = destination
+        }
         if (destination != AppDestinations.EDIT_STAMP) {
             _editingStamp.value = null
         }
+    }
+
+    fun popBackStack(): Boolean {
+        if (navigationHistory.isNotEmpty()) {
+            _currentDestination.value = navigationHistory.pop()
+            if (_currentDestination.value != AppDestinations.EDIT_STAMP) {
+                _editingStamp.value = null
+            }
+            return true
+        }
+        return false
     }
 
     fun setEditingStamp(stamp: StampItem?) {
@@ -152,7 +166,7 @@ class MainViewModel(context: Context) : ViewModel() {
     fun startAddingStamp(type: StampType) {
         _editingStamp.value = StampItem(System.currentTimeMillis(), type, "")
         _isEditingExisting.value = false
-        _currentDestination.value = AppDestinations.EDIT_STAMP
+        navigateTo(AppDestinations.EDIT_STAMP)
     }
 
     fun setEditingStampById(stampId: Long) {
@@ -163,7 +177,7 @@ class MainViewModel(context: Context) : ViewModel() {
             _editingStamp.value = item
             _isEditingExisting.value = item != null
             if (item != null) {
-                _currentDestination.value = AppDestinations.EDIT_STAMP
+                navigateTo(AppDestinations.EDIT_STAMP)
             }
         }
     }
@@ -180,6 +194,7 @@ class MainViewModel(context: Context) : ViewModel() {
             timelineRepo.saveStamp(note.ownerId, note.id, currentStamp.type, noteText, timestamp)
             _editingStamp.value = null
             _currentDestination.value = AppDestinations.TIMELINE
+            navigationHistory.clear() // 保存後は履歴をクリアしてタイムラインを起点にする
         }
     }
 

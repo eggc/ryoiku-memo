@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
@@ -81,6 +82,11 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
     val editingStamp by viewModel.editingStamp.collectAsState()
 
     val context = LocalContext.current
+
+    // システムの戻るボタンをハンドリング
+    BackHandler(enabled = currentDestination != AppDestinations.TIMELINE) {
+        viewModel.popBackStack()
+    }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -182,9 +188,10 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         modifier = Modifier.padding(innerPadding),
                         timelineRepository = timelineRepository,
                         note = currentNote!!,
-                        onBack = { viewModel.navigateTo(AppDestinations.TIMELINE) },
+                        onBack = { viewModel.popBackStack() },
                         onStampSaved = {
-                            viewModel.navigateTo(AppDestinations.TIMELINE)
+                            viewModel.saveStamp(0, "") // dummy call if needed, but normally handled in StampAddScreen
+                            viewModel.popBackStack()
                         },
                         onStampSelected = { type ->
                             viewModel.startAddingStamp(type)
@@ -198,12 +205,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                                 timelineRepository = timelineRepository,
                                 note = currentNote!!,
                                 onBack = {
-                                    // 新規追加からの編集なら追加画面へ、直接編集ならタイムラインへ
-                                    if (viewModel.isEditingExisting.value) {
-                                        viewModel.navigateTo(AppDestinations.TIMELINE)
-                                    } else {
-                                        viewModel.navigateTo(AppDestinations.STAMP_ADD)
-                                    }
+                                    viewModel.popBackStack()
                                 },
                                 onSave = { timestamp, noteText ->
                                     viewModel.saveStamp(timestamp, noteText)
@@ -255,12 +257,12 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
 
                     AppDestinations.TERMS -> TermsScreen(
                         modifier = Modifier.padding(innerPadding),
-                        onNavigateUp = { viewModel.navigateTo(AppDestinations.SETTINGS) }
+                        onNavigateUp = { viewModel.popBackStack() }
                     )
 
                     AppDestinations.PRIVACY_POLICY -> PrivacyPolicyScreen(
                         modifier = Modifier.padding(innerPadding),
-                        onNavigateUp = { viewModel.navigateTo(AppDestinations.SETTINGS) }
+                        onNavigateUp = { viewModel.popBackStack() }
                     )
 
                     AppDestinations.GRAPH -> {}
