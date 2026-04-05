@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -156,8 +155,7 @@ fun StampEditScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .padding(16.dp)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,15 +169,7 @@ fun StampEditScreen(
                 }
             }
 
-            TextField(
-                value = memoText,
-                onValueChange = { memoText = it },
-                label = { Text("詳細 (任意)") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3
-            )
-
-            // アコーディオン方式のサジェスト
+            // アコーディオン方式のサジェストを上に移動（TextFieldを最大化するため）
             if (suggestions.isNotEmpty()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -204,7 +194,10 @@ fun StampEditScreen(
                     }
 
                     if (suggestionsExpanded) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             suggestions.forEach { suggestion ->
                                 Surface(
                                     modifier = Modifier
@@ -230,7 +223,14 @@ fun StampEditScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            TextField(
+                value = memoText,
+                onValueChange = { memoText = it },
+                label = { Text("詳細 (任意)") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
 
             Button(
                 onClick = { onSave(timestamp, memoText) },
