@@ -21,6 +21,7 @@ import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.data.TaskRepository
 import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.data.StampItem
+import net.eggc.ryoikumemo.data.StampType
 import java.time.LocalDate
 
 class MainViewModel(context: Context) : ViewModel() {
@@ -52,6 +53,9 @@ class MainViewModel(context: Context) : ViewModel() {
 
     private val _editingStamp = MutableStateFlow<StampItem?>(null)
     val editingStamp: StateFlow<StampItem?> = _editingStamp.asStateFlow()
+
+    private val _isEditingExisting = MutableStateFlow(false)
+    val isEditingExisting: StateFlow<Boolean> = _isEditingExisting.asStateFlow()
 
     init {
         // Auth 状態の監視
@@ -142,6 +146,13 @@ class MainViewModel(context: Context) : ViewModel() {
 
     fun setEditingStamp(stamp: StampItem?) {
         _editingStamp.value = stamp
+        _isEditingExisting.value = stamp != null
+    }
+
+    fun startAddingStamp(type: StampType) {
+        _editingStamp.value = StampItem(System.currentTimeMillis(), type, "")
+        _isEditingExisting.value = false
+        _currentDestination.value = AppDestinations.EDIT_STAMP
     }
 
     fun setEditingStampById(stampId: Long) {
@@ -150,18 +161,30 @@ class MainViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             val item = timelineRepo.getStampItem(note.ownerId, note.id, stampId)
             _editingStamp.value = item
+            _isEditingExisting.value = item != null
+            if (item != null) {
+                _currentDestination.value = AppDestinations.EDIT_STAMP
+            }
         }
     }
 
-    fun saveEditedStamp(timestamp: Long, noteText: String) {
+    fun saveStamp(timestamp: Long, noteText: String) {
         val currentStamp = _editingStamp.value ?: return
         val note = _currentNote.value ?: return
         val timelineRepo = _timelineRepository.value
 
         viewModelScope.launch {
-            timelineRepo.deleteTimelineItem(note.ownerId, note.id, currentStamp)
+            if (_isEditingExisting.value) {
+                timelineRepo.deleteTimelineItem(note.ownerId, note.id, currentStamp)
+            }
             timelineRepo.saveStamp(note.ownerId, note.id, currentStamp.type, noteText, timestamp)
             _editingStamp.value = null
+            _currentDestination.value = AppDestinations.TIMELINE
         }
+    }
+
+    @Deprecated("Use saveStamp instead", ReplaceWith("saveStamp(timestamp, noteText)"))
+    fun saveEditedStamp(timestamp: Long, noteText: String) {
+        saveStamp(timestamp, noteText)
     }
 }

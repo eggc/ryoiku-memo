@@ -6,13 +6,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
@@ -21,12 +22,15 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -41,8 +45,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.Note
+import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.TimelineRepository
-import net.eggc.ryoikumemo.data.StampType
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -50,25 +54,24 @@ import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditStampDialog(
-    stampType: StampType,
-    initialTimestamp: Long = System.currentTimeMillis(),
-    initialNote: String = "",
+fun StampEditScreen(
+    modifier: Modifier = Modifier,
+    stampItem: StampItem,
     timelineRepository: TimelineRepository,
     note: Note,
-    onDismiss: () -> Unit,
-    onConfirm: (Long, String) -> Unit
+    onBack: () -> Unit,
+    onSave: (Long, String) -> Unit
 ) {
-    var timestamp by remember { mutableStateOf(initialTimestamp) }
-    var memoText by remember { mutableStateOf(initialNote) }
+    var timestamp by remember { mutableStateOf(stampItem.timestamp) }
+    var memoText by remember { mutableStateOf(stampItem.note) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var suggestionsExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(stampType) {
-        if (stampType != StampType.MEMO) {
-            suggestions = timelineRepository.getStampNoteSuggestions(note.ownerId, note.id, stampType).take(5)
+    LaunchedEffect(stampItem.type) {
+        if (stampItem.type != net.eggc.ryoikumemo.data.StampType.MEMO) {
+            suggestions = timelineRepository.getStampNoteSuggestions(note.ownerId, note.id, stampItem.type).take(5)
         }
     }
 
@@ -136,100 +139,105 @@ fun EditStampDialog(
         )
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(stampType.icon, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("${stampType.label}を記録")
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
-                        Text(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MM/dd")))
-                    }
-                    Button(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
-                        Text(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")))
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text("${stampItem.type.label}を記録") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
                     }
                 }
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(16.dp)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
+                    val dateStr = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MM/dd"))
+                    Text(dateStr)
+                }
+                Button(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
+                    val timeStr = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
+                    Text(timeStr)
+                }
+            }
 
-                TextField(
-                    value = memoText,
-                    onValueChange = { memoText = it },
-                    label = { Text("詳細 (任意)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
-                )
+            TextField(
+                value = memoText,
+                onValueChange = { memoText = it },
+                label = { Text("詳細 (任意)") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3
+            )
 
-                // アコーディオン方式のサジェスト
-                if (suggestions.isNotEmpty()) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { suggestionsExpanded = !suggestionsExpanded }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "過去の履歴から選択",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Icon(
-                                imageVector = if (suggestionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+            // アコーディオン方式のサジェスト
+            if (suggestions.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { suggestionsExpanded = !suggestionsExpanded }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "過去の履歴から選択",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(
+                            imageVector = if (suggestionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
-                        if (suggestionsExpanded) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                suggestions.forEach { suggestion ->
-                                    Surface(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                memoText = suggestion
-                                                suggestionsExpanded = false
-                                            },
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        shape = MaterialTheme.shapes.small
-                                    ) {
-                                        Text(
-                                            text = suggestion,
-                                            modifier = Modifier.padding(12.dp),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
+                    if (suggestionsExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            suggestions.forEach { suggestion ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            memoText = suggestion
+                                            suggestionsExpanded = false
+                                        },
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    shape = MaterialTheme.shapes.small
+                                ) {
+                                    Text(
+                                        text = suggestion,
+                                        modifier = Modifier.padding(12.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(onClick = { onConfirm(timestamp, memoText) }) {
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = { onSave(timestamp, memoText) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("保存")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("キャンセル")
-            }
         }
-    )
+    }
 }

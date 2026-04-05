@@ -47,8 +47,8 @@ import net.eggc.ryoikumemo.ui.feature.review.ReviewScreen
 import net.eggc.ryoikumemo.ui.feature.settings.PrivacyPolicyScreen
 import net.eggc.ryoikumemo.ui.feature.settings.SettingsScreen
 import net.eggc.ryoikumemo.ui.feature.settings.TermsScreen
-import net.eggc.ryoikumemo.ui.feature.stamp.EditStampDialog
 import net.eggc.ryoikumemo.ui.feature.stamp.StampAddScreen
+import net.eggc.ryoikumemo.ui.feature.stamp.StampEditScreen
 import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
 import net.eggc.ryoikumemo.ui.feature.timeline.TimelineScreen
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
@@ -82,22 +82,6 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
 
     val context = LocalContext.current
 
-    // 編集用ダイアログの表示管理
-    if (editingStamp != null && currentNote != null) {
-        EditStampDialog(
-            stampType = editingStamp!!.type,
-            initialTimestamp = editingStamp!!.timestamp,
-            initialNote = editingStamp!!.note,
-            timelineRepository = timelineRepository,
-            note = currentNote!!,
-            onDismiss = { viewModel.setEditingStamp(null) },
-            onConfirm = { timestamp, noteText ->
-                viewModel.saveEditedStamp(timestamp, noteText)
-                Toast.makeText(context, "更新しました", Toast.LENGTH_SHORT).show()
-            }
-        )
-    }
-
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             AppDestinations.entries.filter { it.icon != null }.forEach { dest ->
@@ -120,46 +104,48 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                TopAppBar(
-                    title = {
-                        Row(
-                            modifier = Modifier.clickable { viewModel.navigateTo(AppDestinations.NOTE) },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Book,
-                                contentDescription = "ノート選択"
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(currentNote?.name ?: "")
-                            Icon(
-                                Icons.Filled.ArrowDropDown,
-                                contentDescription = "ノートを切り替え"
-                            )
-                        }
-                    },
-                    actions = {
-                        if (currentUser != null) {
-                            AsyncImage(
-                                model = currentUser!!.photoUrl,
-                                contentDescription = "User profile picture",
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .clickable { viewModel.navigateTo(AppDestinations.SETTINGS) },
-                                contentScale = ContentScale.Crop,
-                                error = painterResource(id = R.drawable.ic_launcher_foreground),
-                                placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                if (currentDestination != AppDestinations.EDIT_STAMP) {
+                    TopAppBar(
+                        title = {
+                            Row(
+                                modifier = Modifier.clickable { viewModel.navigateTo(AppDestinations.NOTE) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Book,
+                                    contentDescription = "ノート選択"
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(currentNote?.name ?: "")
+                                Icon(
+                                    Icons.Filled.ArrowDropDown,
+                                    contentDescription = "ノートを切り替え"
+                                )
+                            }
+                        },
+                        actions = {
+                            if (currentUser != null) {
+                                AsyncImage(
+                                    model = currentUser!!.photoUrl,
+                                    contentDescription = "User profile picture",
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .clickable { viewModel.navigateTo(AppDestinations.SETTINGS) },
+                                    contentScale = ContentScale.Crop,
+                                    error = painterResource(id = R.drawable.ic_launcher_foreground),
+                                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     )
-                )
+                }
             }
         ) { innerPadding ->
             if (currentNote != null) {
@@ -198,8 +184,26 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         note = currentNote!!,
                         onStampSaved = {
                             viewModel.navigateTo(AppDestinations.TIMELINE)
+                        },
+                        onStampSelected = { type ->
+                            viewModel.startAddingStamp(type)
                         }
                     )
+
+                    AppDestinations.EDIT_STAMP -> {
+                        if (editingStamp != null) {
+                            StampEditScreen(
+                                stampItem = editingStamp!!,
+                                timelineRepository = timelineRepository,
+                                note = currentNote!!,
+                                onBack = { viewModel.navigateTo(AppDestinations.TIMELINE) },
+                                onSave = { timestamp, noteText ->
+                                    viewModel.saveStamp(timestamp, noteText)
+                                    Toast.makeText(context, "保存しました", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    }
 
                     AppDestinations.NOTE -> NoteScreen(
                         modifier = Modifier.padding(innerPadding),
@@ -252,7 +256,6 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                     )
 
                     AppDestinations.GRAPH -> {}
-                    AppDestinations.EDIT_STAMP -> {}
                 }
             }
         }

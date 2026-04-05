@@ -1,6 +1,5 @@
 package net.eggc.ryoikumemo.ui.feature.stamp
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,13 +19,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.TimelineRepository
@@ -38,34 +35,16 @@ fun StampAddScreen(
     modifier: Modifier = Modifier,
     timelineRepository: TimelineRepository,
     note: Note?,
-    onStampSaved: () -> Unit
+    onStampSaved: () -> Unit,
+    onStampSelected: (StampType) -> Unit
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val appPreferences = remember { AppPreferences(context) }
 
     var isCustomizing by remember { mutableStateOf(false) }
     var hiddenStampTypes by remember { mutableStateOf(appPreferences.getHiddenStampTypes()) }
-    var selectedStampType by remember { mutableStateOf<StampType?>(null) }
 
     val visibleStampTypes = StampType.entries.filter { !hiddenStampTypes.contains(it.name) }
-
-    if (selectedStampType != null && note != null) {
-        EditStampDialog(
-            stampType = selectedStampType!!,
-            timelineRepository = timelineRepository,
-            note = note,
-            onDismiss = { selectedStampType = null },
-            onConfirm = { timestamp, noteText ->
-                coroutineScope.launch {
-                    timelineRepository.saveStamp(note.ownerId, note.id, selectedStampType!!, noteText, timestamp)
-                    Toast.makeText(context, "${selectedStampType!!.label}を記録しました", Toast.LENGTH_SHORT).show()
-                    selectedStampType = null
-                    onStampSaved()
-                }
-            }
-        )
-    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -102,7 +81,7 @@ fun StampAddScreen(
                     modifier = Modifier.padding(8.dp),
                     onClick = {
                         if (!isCustomizing && note != null) {
-                            selectedStampType = stampType
+                            onStampSelected(stampType)
                         }
                     }
                 ) {
