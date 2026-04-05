@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -33,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.StampType
@@ -50,6 +53,7 @@ fun TimelineItemCard(
     onDeleteClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
 
     Row(
         modifier = Modifier
@@ -63,7 +67,7 @@ fun TimelineItemCard(
                 .width(52.dp)
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .padding(top = 20.dp, end = 8.dp) // カードのパディング 16dp + 内部パディング 4dp = 20dp
+                .padding(top = 20.dp, end = 8.dp)
         ) {
             Text(
                 text = SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(timestamp)),
@@ -78,7 +82,7 @@ fun TimelineItemCard(
         Card(
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 16.dp), // 12dpから16dpへ増やし、上下合わせて32dp（約1.5行分）の余白を確保
+                .padding(vertical = 16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -126,6 +130,20 @@ fun TimelineItemCard(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("コピー") },
+                                leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    val time = SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(timestamp))
+                                    val textToCopy = if (note.isNotBlank()) {
+                                        "[$time] ${stampType.label}\n$note"
+                                    } else {
+                                        "[$time] ${stampType.label}"
+                                    }
+                                    clipboardManager.setText(AnnotatedString(textToCopy))
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("編集") },
                                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
