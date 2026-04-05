@@ -1,6 +1,5 @@
 package net.eggc.ryoikumemo.ui.feature.timeline
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,61 +45,64 @@ fun TimelineItemCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 左側グループ: アイコン、ラベル、時刻
+        // 1. 時刻の列（固定幅、ゼロパディングなし、右寄せ）
+        // 幅を40dpから52dpに拡大して折り返しを防止
+        Text(
+            text = SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(timestamp)),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .width(52.dp)
+                .padding(top = 12.dp, end = 8.dp),
+            textAlign = TextAlign.End
+        )
+
+        // 2. カード部分
+        Card(
+            modifier = Modifier.weight(1f)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         stampType.icon,
                         contentDescription = stampType.label,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stampType.label,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.titleSmall
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
-                // 右側グループ: 署名とドロップダウンメニュー
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End,
-                ) {
+                    Spacer(modifier = Modifier.weight(1f))
+
                     Text(
                         text = operatorName ?: "不明",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
-                        modifier = Modifier.width(60.dp),
-                        textAlign = TextAlign.End
+                        modifier = Modifier.width(50.dp),
+                        textAlign = TextAlign.End,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                         IconButton(
                             onClick = { showMenu = true },
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "メニュー",
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                         DropdownMenu(
@@ -132,13 +134,13 @@ fun TimelineItemCard(
                         }
                     }
                 }
-            }
-            if (note.isNotBlank()) {
-                Text(
-                    text = note,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                )
+                if (note.isNotBlank()) {
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
         }
     }
