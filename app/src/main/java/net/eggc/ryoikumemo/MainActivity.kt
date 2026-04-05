@@ -48,7 +48,8 @@ import net.eggc.ryoikumemo.ui.feature.settings.PrivacyPolicyScreen
 import net.eggc.ryoikumemo.ui.feature.settings.SettingsScreen
 import net.eggc.ryoikumemo.ui.feature.settings.TermsScreen
 import net.eggc.ryoikumemo.ui.feature.stamp.EditStampDialog
-import net.eggc.ryoikumemo.ui.feature.stamp.StampScreen
+import net.eggc.ryoikumemo.ui.feature.stamp.StampAddScreen
+import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
 import net.eggc.ryoikumemo.ui.feature.timeline.TimelineScreen
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 
@@ -171,7 +172,16 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         onMonthChange = { viewModel.setMonth(it) },
                         onEditStampClick = { stampId ->
                             viewModel.setEditingStampById(stampId)
+                        },
+                        onAddStampClick = {
+                            viewModel.navigateTo(AppDestinations.STAMP_ADD)
                         }
+                    )
+
+                    AppDestinations.TASK -> TaskScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        taskRepository = taskRepository,
+                        note = currentNote!!
                     )
 
                     AppDestinations.REVIEW -> ReviewScreen(
@@ -182,13 +192,13 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         onMonthChange = { viewModel.setMonth(it) }
                     )
 
-                    AppDestinations.STAMP -> StampScreen(
+                    AppDestinations.STAMP_ADD -> StampAddScreen(
                         modifier = Modifier.padding(innerPadding),
-                        noteRepository = noteRepository,
                         timelineRepository = timelineRepository,
-                        taskRepository = taskRepository,
                         note = currentNote!!,
-                        onStampSaved = { /* なにもしない（きろくタブに留まる） */ }
+                        onStampSaved = {
+                            viewModel.navigateTo(AppDestinations.TIMELINE)
+                        }
                     )
 
                     AppDestinations.NOTE -> NoteScreen(

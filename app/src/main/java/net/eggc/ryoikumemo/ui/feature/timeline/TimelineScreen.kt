@@ -15,11 +15,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,7 +60,8 @@ fun TimelineScreen(
     note: Note,
     currentMonth: LocalDate,
     onMonthChange: (LocalDate) -> Unit,
-    onEditStampClick: (Long) -> Unit
+    onEditStampClick: (Long) -> Unit,
+    onAddStampClick: () -> Unit
 ) {
     val initialPage = remember { ChronoUnit.MONTHS.between(BASE_MONTH, currentMonth.withDayOfMonth(1)).toInt() }
     val pagerState = rememberPagerState(initialPage = initialPage) { 1200 } // 100 years
@@ -110,34 +116,48 @@ fun TimelineScreen(
         }
     }
 
-    Column(modifier = modifier) {
-        MonthSelector(
-            currentMonth = currentMonth,
-            onMonthChange = onMonthChange,
-            onMonthClick = { showJumpDatePicker = true }
-        )
-
-        TimelineFilterBar(
-            selectedFilters = selectedFilters,
-            hiddenStampTypes = hiddenStampTypes,
-            onFilterChange = { selectedFilters = it }
-        )
-
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-        ) { page ->
-            val month = BASE_MONTH.plusMonths(page.toLong())
-            TimelineMonthPage(
-                timelineRepository = timelineRepository,
-                note = note,
-                month = month,
-                selectedFilters = selectedFilters,
-                targetDate = if (targetDate?.year == month.year && targetDate?.month == month.month) targetDate else null,
-                onTargetDateScrolled = { targetDate = null },
-                onEditStampClick = { onEditStampClick(it) },
-                onDateClick = { showJumpDatePicker = true }
+    Scaffold(
+        modifier = modifier,
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onAddStampClick,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("新規追加") },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             )
+        },
+        floatingActionButtonPosition = FabPosition.End
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            MonthSelector(
+                currentMonth = currentMonth,
+                onMonthChange = onMonthChange,
+                onMonthClick = { showJumpDatePicker = true }
+            )
+
+            TimelineFilterBar(
+                selectedFilters = selectedFilters,
+                hiddenStampTypes = hiddenStampTypes,
+                onFilterChange = { selectedFilters = it }
+            )
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                val month = BASE_MONTH.plusMonths(page.toLong())
+                TimelineMonthPage(
+                    timelineRepository = timelineRepository,
+                    note = note,
+                    month = month,
+                    selectedFilters = selectedFilters,
+                    targetDate = if (targetDate?.year == month.year && targetDate?.month == month.month) targetDate else null,
+                    onTargetDateScrolled = { targetDate = null },
+                    onEditStampClick = { onEditStampClick(it) },
+                    onDateClick = { showJumpDatePicker = true }
+                )
+            }
         }
     }
 }
