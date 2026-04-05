@@ -66,7 +66,7 @@ fun TimelineItemCard(
             modifier = Modifier
                 .width(52.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(top = 20.dp, end = 8.dp)
         ) {
             Text(
