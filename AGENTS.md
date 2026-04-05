@@ -29,15 +29,38 @@ net.eggc.ryoikumemo/
 │   ├── AppDestinations.kt  # ナビゲーション定義
 │   ├── components/         # 共通部品 (MonthSelector等)
 │   └── feature/            # 機能単位のパッケージ
-│       ├── timeline/       # タイムライン画面
+│       ├── timeline/       # タイムライン画面（Screen, MonthPage, Card等）
 │       ├── stamp/          # きろく入力・ダイアログ
 │       ├── task/           # タスク管理画面
 │       ├── graph/          # グラフ表示ロジック
 │       ├── note/           # ノート切り替え・管理
 │       └── settings/       # 設定・アカウント・規約
-├── data/                   # データレイヤー (Repository, Firestore, local)
+├── data/                   # データレイヤー
+│   ├── NoteRepository.kt       # ノート・共有管理
+│   ├── TimelineRepository.kt   # スタンプ・記録管理
+│   ├── TaskRepository.kt       # タスク管理
+│   ├── Firestore*.kt           # Firestore実装
+│   └── SharedPreferences*.kt   # ローカル保存実装
 └── domain/                 # ビジネスロジック (Manager類)
 ```
+
+## テスト戦略
+- **Firestore エミュレータ**: `FirestoreEmulatorRule` を使用し、テスト実行時に自動的にデータをクリアしてエミュレータ上でテストを行います。
+  - **起動コマンド**: `firebase emulators:start`
+  - **UI確認**: `http://localhost:4000`
+- **ユニットテスト**: ロジックの検証は JVM 上で高速に実行します。
+  - **実行コマンド**: `./gradlew :app:testDebugUnitTest`
+- **インストルメンテーションテスト (Android Test)**: Repository 等、実機/エミュレータが必要なテスト。
+  - **実行コマンド**: `./gradlew :app:connectedDebugAndroidTest`
+- **カバレッジ (Jacoco)**:
+  - **実行コマンド**: `./gradlew :app:jacocoTestReport`
+  - レポート場所: `app/build/` 配下に作成します。
+
+## テストのローカル実行
+
+1. Device Manager などを操作して Android のシミュレータを起動します。（または実機を接続します）
+2. `firebase emulators:start` により firebase のエミュレータを起動します。
+3. `./gradlew :app:jacocoTestReport` により全件テストを実行します。
 
 ## UI/UX 方針
 - **一貫した操作感**:
@@ -48,15 +71,8 @@ net.eggc.ryoikumemo/
   - サジェストは `ExposedDropdownMenu` ではなくアコーディオン方式を採用し、ダイアログ自体の伸縮でボタンの隠れを回避します。
 
 ## 実装ガイドライン
-- **MainActivity の軽量化**: `MainActivity` はナビゲーションのホストと、アプリ全体で共有されるダイアログ（スタンプ編集など）の管理に限定し、責任が増えすぎないようにします。
-- **データストリーム**: データの取得には `Flow` を使用し、`collectAsState` で UI に反映します。Firestore の `metadata.isFromCache` を活用したログ出力により、通信効率を確認できるようにしています。
+- **MainActivity の軽量化**: `MainActivity` はナビゲーション host と、アプリ全体で共有されるダイアログ（スタンプ編集など）の管理に限定。
+- **データストリーム**: データの取得には `Flow` を使用し、`collectAsState` で UI に反映します。
 - **非推奨 API への対応**:
-  - `ClickableText` ではなく `Text` と `AnnotatedString` の `LinkAnnotation` (または `pushStringAnnotation`) を使用します。
-  - アイコンは `Icons.AutoMirrored` などの最新の参照形式を優先します。
-- **エラーハンドリング**: Firestore の権限エラー (`PERMISSION_DENIED`) 等でアプリがクラッシュしないよう、リスナー内での `Log.e` 出力と安全な空リスト返却を徹底します。
-
-## パッケージ・依存関係
-- 日本語で会話してください。
-- なるべく最新のパッケージを使用してください。
-  - Firebase 関連は BOM (`com.google.firebase:firebase-bom`) を活用し、バージョン不整合を防ぎます。
-- ID生成には `jnanoid` を使用します。
+  - `ClickableText` ではなく `Text` と `AnnotatedString` のリンク機能を使用。
+- **エラーハンドリング**: Firestore の権限エラー等でアプリがクラッシュしないよう、リスナー内での安全な空リスト返却を徹底。
