@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -176,18 +177,30 @@ fun TimelineMonthPage(
                         }
                     } else {
                         groupedItems.forEach { (date, items) ->
-                            stickyHeader(key = "header_${date}") {
-                                Surface(
+                            item(key = "date_${date}") {
+                                Row(
                                     modifier = Modifier
-                                        .fillParentMaxWidth()
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Min)
                                         .clickable { onDateClick() },
-                                    color = MaterialTheme.colorScheme.primaryContainer
-                                        .copy(alpha = 0.95f)
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    // 時刻列の延長（背景Box）
+                                    Box(
+                                        modifier = Modifier
+                                            .width(52.dp)
+                                            .fillMaxHeight()
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    )
+
+                                    // 日付表示
                                     Text(
-                                        text = date.formatDateWithWeekday(),
+                                        text = date.formatDateWithWeekdayOnlyDay(),
                                         style = MaterialTheme.typography.titleSmall,
-                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                                            .weight(1f)
                                     )
                                 }
                             }
@@ -219,8 +232,8 @@ fun TimelineMonthPage(
     }
 }
 
-private fun LocalDate.formatDateWithWeekday(): String {
-    val formattedDate = format(DateTimeFormatter.ofPattern("yyyy年M月d日"))
+private fun LocalDate.formatDateWithWeekdayOnlyDay(): String {
+    val day = dayOfMonth
     val weekday = when (dayOfWeek) {
         java.time.DayOfWeek.MONDAY -> "月"
         java.time.DayOfWeek.TUESDAY -> "火"
@@ -230,5 +243,5 @@ private fun LocalDate.formatDateWithWeekday(): String {
         java.time.DayOfWeek.SATURDAY -> "土"
         java.time.DayOfWeek.SUNDAY -> "日"
     }
-    return "$formattedDate（$weekday）"
+    return "${day}日（$weekday）"
 }
