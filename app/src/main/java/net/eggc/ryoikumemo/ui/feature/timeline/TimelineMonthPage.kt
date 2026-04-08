@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
@@ -76,11 +77,8 @@ fun TimelineMonthPage(
 
     val groupedItems = remember(timelineItems, selectedFilters) {
         val items = timelineItems ?: return@remember emptyMap<LocalDate, List<TimelineItem>>()
-        val filteredItems = if (selectedFilters.isEmpty()) {
-            items
-        } else {
-            items.filter { it is StampItem && selectedFilters.contains(it.type) }
-        }
+        val filteredItems = if (selectedFilters.isEmpty()) items
+        else items.filter { it is StampItem && selectedFilters.contains(it.type) }
         filteredItems.groupBy {
             Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
         }
@@ -96,48 +94,30 @@ fun TimelineMonthPage(
                 if (date == jumpToDate) break
                 index += 1 + (groupedItems[date]?.size ?: 0)
             }
-
             listState.animateScrollToItem(index)
             onTargetDateScrolled()
         }
     }
 
-    if (showDeleteDialogFor != null) {
-        val itemToDelete = showDeleteDialogFor!!
-        AlertDialog(
-            onDismissRequest = { showDeleteDialogFor = null },
-            title = { Text("削除") },
-            text = { Text("この項目を削除しますか？") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            try {
-                                timelineRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
-                                showDeleteDialogFor = null
-                                Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
-                            } catch (e: Exception) {
-                                Log.e("TimelineScreen", "Failed to delete timeline item", e)
-                                Toast.makeText(context, "データの削除に失敗しました", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                ) {
-                    Text("はい")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialogFor = null }) {
-                    Text("いいえ")
+    DeleteConfirmDialog(
+        item = showDeleteDialogFor,
+        onDismiss = { showDeleteDialogFor = null },
+        onConfirm = { itemToDelete ->
+            coroutineScope.launch {
+                try {
+                    timelineRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
+                    showDeleteDialogFor = null
+                    Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Log.e("TimelineScreen", "Failed to delete timeline item", e)
+                    Toast.makeText(context, "データの削除に失敗しました", Toast.LENGTH_SHORT).show()
                 }
             }
-        )
-    }
+        }
+    )
 
     if (timelineItems == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+        LoadingIndicator()
     } else {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -154,81 +134,127 @@ fun TimelineMonthPage(
             },
             modifier = Modifier.fillMaxSize()
         ) {
-            // 背景の列色を画面全体に敷くためのBox
-            Box(modifier = Modifier.fillMaxSize()) {
-                // 時刻列の背景色
-                Box(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                )
+            TimelineList(
+                groupedItems = groupedItems,
+                listState = listState,
+                isFiltered = selectedFilters.isNotEmpty(),
+                onDateClick = onDateClick,
+                onEditStampClick = onEditStampClick,
+                onDeleteClick = { showDeleteDialogFor = it }
+            )
+        }
+    }
+}
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState
-                ) {
-                    if (groupedItems.isEmpty()) {
-                        item {
-                            Text(
-                                text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
-                                modifier = Modifier.padding(16.dp).padding(start = 52.dp)
+@Composable
+private fun TimelineList(
+    groupedItems: Map<LocalDate, List<TimelineItem>>,
+    listState: LazyListState,
+    isFiltered: Boolean,
+    onDateClick: () -> Unit,
+    onEditStampClick: (Long) -> Unit,
+    onDeleteClick: (TimelineItem) -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 全体の時刻列背景
+        Box(
+            modifier = Modifier
+                .width(52.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        )
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState
+        ) {
+            if (groupedItems.isEmpty()) {
+                item {
+                    Text(
+                        text = if (!isFiltered) "この月の記録はありません。" else "条件に合う記録はありません。",
+                        modifier = Modifier.padding(16.dp).padding(start = 52.dp)
+                    )
+                }
+            } else {
+                groupedItems.forEach { (date, items) ->
+                    item(key = "date_${date}") {
+                        TimelineDateRow(date = date, onClick = onDateClick)
+                    }
+                    items(items, key = { "stamp_${it.timestamp}" }) { item ->
+                        if (item is StampItem) {
+                            TimelineItemCard(
+                                timestamp = item.timestamp,
+                                stampType = item.type,
+                                note = item.note,
+                                operatorName = item.operatorName,
+                                onEditClick = { onEditStampClick(item.timestamp) },
+                                onDeleteClick = { onDeleteClick(item) }
                             )
-                        }
-                    } else {
-                        groupedItems.forEach { (date, items) ->
-                            item(key = "date_${date}") {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(IntrinsicSize.Min)
-                                        .clickable { onDateClick() },
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // 時刻列の延長（背景Box）
-                                    Box(
-                                        modifier = Modifier
-                                            .width(52.dp)
-                                            .fillMaxHeight()
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    )
-
-                                    // 日付表示
-                                    Text(
-                                        text = date.formatDateWithWeekdayOnlyDay(),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                                            .weight(1f)
-                                    )
-                                }
-                            }
-                            items(items, key = {
-                                "stamp_${it.timestamp}"
-                            }) { item ->
-                                if (item is StampItem) {
-                                    Column(modifier = Modifier.padding(horizontal = 0.dp)) {
-                                        TimelineItemCard(
-                                            timestamp = item.timestamp,
-                                            stampType = item.type,
-                                            note = item.note,
-                                            operatorName = item.operatorName,
-                                            onEditClick = { onEditStampClick(item.timestamp) },
-                                            onDeleteClick = { showDeleteDialogFor = item }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        // フローティングボタンに隠れないための余白を追加
-                        item {
-                            Spacer(modifier = Modifier.height(80.dp))
                         }
                     }
                 }
+                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
+    }
+}
+
+@Composable
+private fun TimelineDateRow(
+    date: LocalDate,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 時刻列の延長
+        Box(
+            modifier = Modifier
+                .width(52.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        )
+
+        Text(
+            text = date.formatDateWithWeekdayOnlyDay(),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun LoadingIndicator() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun DeleteConfirmDialog(
+    item: TimelineItem?,
+    onDismiss: () -> Unit,
+    onConfirm: (TimelineItem) -> Unit
+) {
+    if (item != null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("削除") },
+            text = { Text("この項目を削除しますか？") },
+            confirmButton = {
+                TextButton(onClick = { onConfirm(item) }) { Text("はい") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("いいえ") }
+            }
+        )
     }
 }
 
