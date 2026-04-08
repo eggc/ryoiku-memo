@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -49,8 +50,21 @@ import net.eggc.ryoikumemo.data.TimelineItem
 import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
+/** タイムラインに表示する行の種類 */
+private sealed interface TimelineRow {
+    /** 日付ヘッダー行（先頭の現在日、または日付跨ぎの区切り） */
+    data class DateHeader(val date: LocalDate) : TimelineRow
+
+    /** 00:00 + 日付を横並びで表示する「日付跨ぎ」行 */
+    data class DateBoundary(val date: LocalDate) : TimelineRow
+
+    /** スタンプアイテム行 */
+    data class Stamp(val item: StampItem) : TimelineRow
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -75,25 +89,28 @@ fun TimelineMonthPage(
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     val listState = rememberLazyListState()
 
-    val groupedItems = remember(timelineItems, selectedFilters) {
-        val items = timelineItems ?: return@remember emptyMap<LocalDate, List<TimelineItem>>()
-        val filteredItems = if (selectedFilters.isEmpty()) items
+    // フィルタ適用済みアイテム（新しい順）
+    val filteredItems = remember(timelineItems, selectedFilters) {
+        val items = timelineItems ?: return@remember null
+        if (selectedFilters.isEmpty()) items
         else items.filter { it is StampItem && selectedFilters.contains(it.type) }
-        filteredItems.groupBy {
-            Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
-        }
+    }
+
+    // タイムラインに表示する行リストを構築
+    val timelineRows = remember(filteredItems, month) {
+        buildTimelineRows(filteredItems, month)
     }
 
     LaunchedEffect(targetDate, timelineItems) {
-        if (targetDate != null && timelineItems != null && groupedItems.isNotEmpty()) {
-            val availableDates = groupedItems.keys.sortedDescending()
-            val jumpToDate = availableDates.firstOrNull { it <= targetDate } ?: availableDates.last()
-
-            var index = 0
-            for (date in availableDates) {
-                if (date == jumpToDate) break
-                index += 1 + (groupedItems[date]?.size ?: 0)
-            }
+        if (targetDate != null && timelineItems != null && timelineRows.isNotEmpty()) {
+            // targetDate 以前の最初の DateHeader/DateBoundary のインデックスへスクロール
+            val index = timelineRows.indexOfFirst { row ->
+                when (row) {
+                    is TimelineRow.DateHeader -> row.date <= targetDate
+                    is TimelineRow.DateBoundary -> row.date <= targetDate
+                    else -> false
+                }
+            }.takeIf { it >= 0 } ?: 0
             listState.animateScrollToItem(index)
             onTargetDateScrolled()
         }
@@ -135,9 +152,10 @@ fun TimelineMonthPage(
             modifier = Modifier.fillMaxSize()
         ) {
             TimelineList(
-                groupedItems = groupedItems,
+                timelineRows = timelineRows,
                 listState = listState,
                 isFiltered = selectedFilters.isNotEmpty(),
+                hasItems = filteredItems?.isNotEmpty() == true,
                 onDateClick = onDateClick,
                 onEditStampClick = onEditStampClick,
                 onDeleteClick = { showDeleteDialogFor = it }
@@ -146,11 +164,55 @@ fun TimelineMonthPage(
     }
 }
 
+/**
+ * タイムラインに表示する行リストを構築する。
+ *
+ * 新しい順に並んだ [items] を受け取り、以下のルールで行を組み立てる：
+ * 1. 先頭に「今日 or 月末」の DateHeader を挿入する。
+ * 2. アイテムの日付が前のアイテムの日付より古くなる（日付跨ぎ）タイミングで
+ *    DateBoundary（00:00 + 日付）を挿入する。
+ */
+private fun buildTimelineRows(
+    items: List<TimelineItem>?,
+    month: LocalDate
+): List<TimelineRow> {
+    val rows = mutableListOf<TimelineRow>()
+
+    // 先頭日付: 今日が表示月内なら今日、それ以外は月末
+    val today = LocalDate.now()
+    val lastDayOfMonth = YearMonth.of(month.year, month.month).atEndOfMonth()
+    val headerDate = if (today.year == month.year && today.month == month.month) today else lastDayOfMonth
+    rows.add(TimelineRow.DateHeader(headerDate))
+
+    if (items.isNullOrEmpty()) return rows
+
+    var prevDate: LocalDate = headerDate
+
+    for (item in items) {
+        if (item !is StampItem) continue
+
+        val itemDate = Instant.ofEpochMilli(item.timestamp)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+
+        // 日付が変わったら DateBoundary を挿入（逆順なので prevDate > itemDate のとき跨ぎ）
+        if (itemDate < prevDate) {
+            rows.add(TimelineRow.DateBoundary(itemDate))
+            prevDate = itemDate
+        }
+
+        rows.add(TimelineRow.Stamp(item))
+    }
+
+    return rows
+}
+
 @Composable
 private fun TimelineList(
-    groupedItems: Map<LocalDate, List<TimelineItem>>,
+    timelineRows: List<TimelineRow>,
     listState: LazyListState,
     isFiltered: Boolean,
+    hasItems: Boolean,
     onDateClick: () -> Unit,
     onEditStampClick: (Long) -> Unit,
     onDeleteClick: (TimelineItem) -> Unit
@@ -168,29 +230,48 @@ private fun TimelineList(
             modifier = Modifier.fillMaxSize(),
             state = listState
         ) {
-            if (groupedItems.isEmpty()) {
+            if (!hasItems) {
+                // DateHeader（先頭の現在日）は常に表示
+                timelineRows.filterIsInstance<TimelineRow.DateHeader>().firstOrNull()?.let { header ->
+                    item(key = "date_header_${header.date}") {
+                        TimelineDateRow(date = header.date, onClick = onDateClick)
+                    }
+                }
                 item {
                     Text(
                         text = if (!isFiltered) "この月の記録はありません。" else "条件に合う記録はありません。",
-                        modifier = Modifier.padding(16.dp).padding(start = 52.dp)
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .padding(start = 52.dp)
                     )
                 }
             } else {
-                groupedItems.forEach { (date, items) ->
-                    item(key = "date_${date}") {
-                        TimelineDateRow(date = date, onClick = onDateClick)
-                    }
-                    items(items, key = { "stamp_${it.timestamp}" }) { item ->
-                        if (item is StampItem) {
-                            TimelineItemCard(
-                                timestamp = item.timestamp,
-                                stampType = item.type,
-                                note = item.note,
-                                operatorName = item.operatorName,
-                                onEditClick = { onEditStampClick(item.timestamp) },
-                                onDeleteClick = { onDeleteClick(item) }
-                            )
+                items(
+                    items = timelineRows,
+                    key = { row ->
+                        when (row) {
+                            is TimelineRow.DateHeader -> "header_${row.date}"
+                            is TimelineRow.DateBoundary -> "boundary_${row.date}"
+                            is TimelineRow.Stamp -> "stamp_${row.item.timestamp}"
                         }
+                    }
+                ) { row ->
+                    when (row) {
+                        is TimelineRow.DateHeader ->
+                            TimelineDateRow(date = row.date, onClick = onDateClick)
+
+                        is TimelineRow.DateBoundary ->
+                            TimelineDateBoundaryRow(date = row.date, onClick = onDateClick)
+
+                        is TimelineRow.Stamp ->
+                            TimelineItemCard(
+                                timestamp = row.item.timestamp,
+                                stampType = row.item.type,
+                                note = row.item.note,
+                                operatorName = row.item.operatorName,
+                                onEditClick = { onEditStampClick(row.item.timestamp) },
+                                onDeleteClick = { onDeleteClick(row.item) }
+                            )
                     }
                 }
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -199,6 +280,7 @@ private fun TimelineList(
     }
 }
 
+/** 先頭の現在日ヘッダー行 */
 @Composable
 private fun TimelineDateRow(
     date: LocalDate,
@@ -211,14 +293,54 @@ private fun TimelineDateRow(
             .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 時刻列の延長
         Box(
             modifier = Modifier
                 .width(52.dp)
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         )
+        Text(
+            text = date.formatDateWithWeekdayOnlyDay(),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .weight(1f)
+        )
+    }
+}
 
+/** 日付跨ぎ行: 時刻列に「0:00」、その隣に日付を表示 */
+@Composable
+private fun TimelineDateBoundaryRow(
+    date: LocalDate,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 時刻列: 0:00
+        Box(
+            modifier = Modifier
+                .width(52.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(top = 12.dp, bottom = 12.dp, end = 8.dp),
+            contentAlignment = Alignment.TopEnd
+        ) {
+            Text(
+                text = "0:00",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End
+            )
+        }
+
+        // 日付
         Text(
             text = date.formatDateWithWeekdayOnlyDay(),
             style = MaterialTheme.typography.titleSmall,
