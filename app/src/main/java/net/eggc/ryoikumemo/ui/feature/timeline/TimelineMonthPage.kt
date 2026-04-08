@@ -185,7 +185,7 @@ fun TimelineMonthPage(
                                         .copy(alpha = 0.95f)
                                 ) {
                                     Text(
-                                        text = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日")),
+                                        text = date.formatDateWithWeekday(),
                                         style = MaterialTheme.typography.titleSmall,
                                         modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
                                     )
@@ -217,4 +217,18 @@ fun TimelineMonthPage(
             }
         }
     }
+}
+
+private fun LocalDate.formatDateWithWeekday(): String {
+    val formattedDate = format(DateTimeFormatter.ofPattern("yyyy年M月d日"))
+    val weekday = when (dayOfWeek) {
+        java.time.DayOfWeek.MONDAY -> "月"
+        java.time.DayOfWeek.TUESDAY -> "火"
+        java.time.DayOfWeek.WEDNESDAY -> "水"
+        java.time.DayOfWeek.THURSDAY -> "木"
+        java.time.DayOfWeek.FRIDAY -> "金"
+        java.time.DayOfWeek.SATURDAY -> "土"
+        java.time.DayOfWeek.SUNDAY -> "日"
+    }
+    return "$formattedDate（$weekday）"
 }
