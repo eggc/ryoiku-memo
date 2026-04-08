@@ -40,21 +40,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import net.eggc.ryoikumemo.data.StampType
 import java.text.SimpleDateFormat
-import java.time.LocalDate
 import java.util.Date
 import java.util.Locale
-
-/** 日付列の幅 */
-internal val DATE_COLUMN_WIDTH = 36.dp
-
-/** 時刻列の幅 */
-internal val TIME_COLUMN_WIDTH = 44.dp
 
 @Composable
 fun TimelineItemCard(
     timestamp: Long,
-    date: LocalDate,
-    showDate: Boolean,
     stampType: StampType,
     note: String,
     operatorName: String?,
@@ -70,43 +61,13 @@ fun TimelineItemCard(
             .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.Top
     ) {
-        // 1. 日付の列
+        // 1. 時刻の列
         Box(
             modifier = Modifier
-                .width(DATE_COLUMN_WIDTH)
+                .width(52.dp)
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(top = 18.dp, start = 4.dp, end = 2.dp),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            if (showDate) {
-                val day = date.dayOfMonth
-                val weekday = when (date.dayOfWeek) {
-                    java.time.DayOfWeek.MONDAY -> "月"
-                    java.time.DayOfWeek.TUESDAY -> "火"
-                    java.time.DayOfWeek.WEDNESDAY -> "水"
-                    java.time.DayOfWeek.THURSDAY -> "木"
-                    java.time.DayOfWeek.FRIDAY -> "金"
-                    java.time.DayOfWeek.SATURDAY -> "土"
-                    java.time.DayOfWeek.SUNDAY -> "日"
-                }
-                Text(
-                    text = "${day}日\n($weekday)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center,
-                    lineHeight = MaterialTheme.typography.labelSmall.fontSize * 1.3
-                )
-            }
-        }
-
-        // 2. 時刻の列
-        Box(
-            modifier = Modifier
-                .width(TIME_COLUMN_WIDTH)
-                .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(top = 20.dp, end = 6.dp)
+                .padding(top = 20.dp, end = 8.dp)
         ) {
             Text(
                 text = SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(timestamp)),
@@ -117,12 +78,14 @@ fun TimelineItemCard(
             )
         }
 
-        // 3. カード部分
+        // 2. カード部分
         Card(
             modifier = Modifier
                 .weight(1f)
                 .padding(vertical = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
@@ -169,13 +132,10 @@ fun TimelineItemCard(
                         ) {
                             DropdownMenuItem(
                                 text = { Text("コピー") },
-                                leadingIcon = {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = null)
-                                },
+                                leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
                                 onClick = {
                                     showMenu = false
-                                    val time = SimpleDateFormat("H:mm", Locale.getDefault())
-                                        .format(Date(timestamp))
+                                    val time = SimpleDateFormat("H:mm", Locale.getDefault()).format(Date(timestamp))
                                     val textToCopy = if (note.isNotBlank()) {
                                         "[$time] ${stampType.label}\n$note"
                                     } else {
@@ -186,9 +146,7 @@ fun TimelineItemCard(
                             )
                             DropdownMenuItem(
                                 text = { Text("編集") },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Edit, contentDescription = null)
-                                },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                                 onClick = {
                                     showMenu = false
                                     onEditClick()

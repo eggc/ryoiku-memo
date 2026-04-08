@@ -4,21 +4,25 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -44,14 +48,7 @@ import net.eggc.ryoikumemo.data.TimelineRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-
-/** タイムラインの1行分のデータ */
-private data class TimelineRow(
-    val item: StampItem,
-    val date: LocalDate,
-    /** この行が日付列に日付を表示するかどうか（同一日付の最初の行のみ true） */
-    val showDate: Boolean
-)
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -76,38 +73,70 @@ fun TimelineMonthPage(
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
     val listState = rememberLazyListState()
 
-    val timelineRows = remember(timelineItems, selectedFilters) {
-        buildTimelineRows(timelineItems, selectedFilters)
+    val groupedItems = remember(timelineItems, selectedFilters) {
+        val items = timelineItems ?: return@remember emptyMap<LocalDate, List<TimelineItem>>()
+        val filteredItems = if (selectedFilters.isEmpty()) {
+            items
+        } else {
+            items.filter { it is StampItem && selectedFilters.contains(it.type) }
+        }
+        filteredItems.groupBy {
+            Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+        }
     }
 
     LaunchedEffect(targetDate, timelineItems) {
-        if (targetDate != null && timelineItems != null && timelineRows.isNotEmpty()) {
-            val index = timelineRows.indexOfFirst { it.date <= targetDate && it.showDate }
-                .takeIf { it >= 0 } ?: 0
+        if (targetDate != null && timelineItems != null && groupedItems.isNotEmpty()) {
+            val availableDates = groupedItems.keys.sortedDescending()
+            val jumpToDate = availableDates.firstOrNull { it <= targetDate } ?: availableDates.last()
+
+            var index = 0
+            for (date in availableDates) {
+                if (date == jumpToDate) break
+                index += 1 + (groupedItems[date]?.size ?: 0)
+            }
+
             listState.animateScrollToItem(index)
             onTargetDateScrolled()
         }
     }
 
-    DeleteConfirmDialog(
-        item = showDeleteDialogFor,
-        onDismiss = { showDeleteDialogFor = null },
-        onConfirm = { itemToDelete ->
-            coroutineScope.launch {
-                try {
-                    timelineRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
-                    showDeleteDialogFor = null
-                    Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Log.e("TimelineScreen", "Failed to delete timeline item", e)
-                    Toast.makeText(context, "データの削除に失敗しました", Toast.LENGTH_SHORT).show()
+    if (showDeleteDialogFor != null) {
+        val itemToDelete = showDeleteDialogFor!!
+        AlertDialog(
+            onDismissRequest = { showDeleteDialogFor = null },
+            title = { Text("削除") },
+            text = { Text("この項目を削除しますか？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                timelineRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
+                                showDeleteDialogFor = null
+                                Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Log.e("TimelineScreen", "Failed to delete timeline item", e)
+                                Toast.makeText(context, "データの削除に失敗しました", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text("はい")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialogFor = null }) {
+                    Text("いいえ")
                 }
             }
-        }
-    )
+        )
+    }
 
     if (timelineItems == null) {
-        LoadingIndicator()
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
     } else {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -124,114 +153,82 @@ fun TimelineMonthPage(
             },
             modifier = Modifier.fillMaxSize()
         ) {
-            TimelineList(
-                timelineRows = timelineRows,
-                listState = listState,
-                isFiltered = selectedFilters.isNotEmpty(),
-                onEditStampClick = onEditStampClick,
-                onDeleteClick = { showDeleteDialogFor = it }
-            )
-        }
-    }
-}
+            // 背景の列色を画面全体に敷くためのBox
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 時刻列の背景色
+                Box(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                )
 
-/**
- * フィルタを適用し、各行に showDate フラグを付けたリストを構築する。
- * リストは新しい順（降順）。同じ日付の最初の行のみ showDate = true。
- */
-private fun buildTimelineRows(
-    items: List<TimelineItem>?,
-    selectedFilters: Set<StampType>
-): List<TimelineRow> {
-    if (items == null) return emptyList()
-
-    val filtered = if (selectedFilters.isEmpty()) items
-    else items.filter { it is StampItem && selectedFilters.contains(it.type) }
-
-    var prevDate: LocalDate? = null
-    return filtered.filterIsInstance<StampItem>().map { item ->
-        val date = Instant.ofEpochMilli(item.timestamp)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-        val showDate = date != prevDate
-        prevDate = date
-        TimelineRow(item = item, date = date, showDate = showDate)
-    }
-}
-
-@Composable
-private fun TimelineList(
-    timelineRows: List<TimelineRow>,
-    listState: LazyListState,
-    isFiltered: Boolean,
-    onEditStampClick: (Long) -> Unit,
-    onDeleteClick: (TimelineItem) -> Unit
-) {
-    // 日付列 + 時刻列の合計幅分を surfaceVariant で塗りつぶす背景
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .width(DATE_COLUMN_WIDTH + TIME_COLUMN_WIDTH)
-                .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState
-        ) {
-            if (timelineRows.isEmpty()) {
-                item {
-                    Text(
-                        text = if (!isFiltered) "この月の記録はありません。" else "条件に合う記録はありません。",
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .padding(start = DATE_COLUMN_WIDTH + TIME_COLUMN_WIDTH)
-                    )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = listState
+                ) {
+                    if (groupedItems.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (selectedFilters.isEmpty()) "この月の記録はありません。" else "条件に合う記録はありません。",
+                                modifier = Modifier.padding(16.dp).padding(start = 52.dp)
+                            )
+                        }
+                    } else {
+                        groupedItems.forEach { (date, items) ->
+                            stickyHeader(key = "header_${date}") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillParentMaxWidth()
+                                        .clickable { onDateClick() },
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                        .copy(alpha = 0.95f)
+                                ) {
+                                    Text(
+                                        text = date.formatDateWithWeekday(),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            items(items, key = {
+                                "stamp_${it.timestamp}"
+                            }) { item ->
+                                if (item is StampItem) {
+                                    Column(modifier = Modifier.padding(horizontal = 0.dp)) {
+                                        TimelineItemCard(
+                                            timestamp = item.timestamp,
+                                            stampType = item.type,
+                                            note = item.note,
+                                            operatorName = item.operatorName,
+                                            onEditClick = { onEditStampClick(item.timestamp) },
+                                            onDeleteClick = { showDeleteDialogFor = item }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        // フローティングボタンに隠れないための余白を追加
+                        item {
+                            Spacer(modifier = Modifier.height(80.dp))
+                        }
+                    }
                 }
-            } else {
-                items(timelineRows, key = { "stamp_${it.item.timestamp}" }) { row ->
-                    TimelineItemCard(
-                        timestamp = row.item.timestamp,
-                        date = row.date,
-                        showDate = row.showDate,
-                        stampType = row.item.type,
-                        note = row.item.note,
-                        operatorName = row.item.operatorName,
-                        onEditClick = { onEditStampClick(row.item.timestamp) },
-                        onDeleteClick = { onDeleteClick(row.item) }
-                    )
-                }
-                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
     }
 }
 
-@Composable
-private fun LoadingIndicator() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator()
+private fun LocalDate.formatDateWithWeekday(): String {
+    val formattedDate = format(DateTimeFormatter.ofPattern("yyyy年M月d日"))
+    val weekday = when (dayOfWeek) {
+        java.time.DayOfWeek.MONDAY -> "月"
+        java.time.DayOfWeek.TUESDAY -> "火"
+        java.time.DayOfWeek.WEDNESDAY -> "水"
+        java.time.DayOfWeek.THURSDAY -> "木"
+        java.time.DayOfWeek.FRIDAY -> "金"
+        java.time.DayOfWeek.SATURDAY -> "土"
+        java.time.DayOfWeek.SUNDAY -> "日"
     }
-}
-
-@Composable
-private fun DeleteConfirmDialog(
-    item: TimelineItem?,
-    onDismiss: () -> Unit,
-    onConfirm: (TimelineItem) -> Unit
-) {
-    if (item != null) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text("削除") },
-            text = { Text("この項目を削除しますか？") },
-            confirmButton = {
-                TextButton(onClick = { onConfirm(item) }) { Text("はい") }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) { Text("いいえ") }
-            }
-        )
-    }
+    return "$formattedDate（$weekday）"
 }
