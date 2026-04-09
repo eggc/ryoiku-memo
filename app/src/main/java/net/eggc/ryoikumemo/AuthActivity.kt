@@ -51,8 +51,13 @@ import java.util.UUID
 
 class AuthActivity : ComponentActivity() {
 
+    companion object {
+        const val EXTRA_LINK_GOOGLE_ACCOUNT = "extra_link_google_account"
+    }
+
     private lateinit var auth: FirebaseAuth
     private lateinit var credentialManager: CredentialManager
+    private var isLinkGoogleAccountMode: Boolean = false
 
     private enum class AuthDestinations {
         AUTH,
@@ -64,6 +69,7 @@ class AuthActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         auth = Firebase.auth
+        isLinkGoogleAccountMode = intent.getBooleanExtra(EXTRA_LINK_GOOGLE_ACCOUNT, false)
         credentialManager = CredentialManager.create(this)
 
         setContent {
@@ -73,17 +79,17 @@ class AuthActivity : ComponentActivity() {
                 when (currentDestination) {
                     AuthDestinations.AUTH -> {
                         AuthScreen(
-                            onLoginClick = {
+                            onGoogleLoginClick = {
                                 lifecycleScope.launch {
                                     signIn()
                                 }
                             },
-                            onSkipLoginClick = {
-                                startActivity(Intent(this, MainActivity::class.java))
-                                finish()
+                            onAnonymousLoginClick = {
+                                signInAnonymouslyAndStartMain()
                             },
                             onTermsClick = { currentDestination = AuthDestinations.TERMS },
-                            onPrivacyPolicyClick = { currentDestination = AuthDestinations.PRIVACY_POLICY }
+                            onPrivacyPolicyClick = { currentDestination = AuthDestinations.PRIVACY_POLICY },
+                            isLinkGoogleAccountMode = isLinkGoogleAccountMode,
                         )
                     }
 
@@ -102,10 +108,24 @@ class AuthActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         val currentUser = auth.currentUser
-        if (currentUser != null) {
+        val shouldStayOnAuthForLink = isLinkGoogleAccountMode && currentUser?.isAnonymous == true
+        if (currentUser != null && !shouldStayOnAuthForLink) {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }
+    }
+
+    private fun signInAnonymouslyAndStartMain() {
+        auth.signInAnonymously()
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    startActivity(Intent(this, MainActivity::class.java))
+                    finish()
+                } else {
+                    Log.w("AuthActivity", "signInAnonymously:failure", task.exception)
+                    Toast.makeText(this, "匿名ログインに失敗しました", Toast.LENGTH_SHORT).show()
+                }
+            }
     }
 
     private suspend fun signIn() {
@@ -127,7 +147,7 @@ class AuthActivity : ComponentActivity() {
                 try {
                     val googleIdTokenCredential =
                         GoogleIdTokenCredential.createFrom(credential.data)
-                    firebaseAuthWithGoogle(googleIdTokenCredential.idToken)
+                    authenticateWithGoogle(googleIdTokenCredential.idToken)
                 } catch (e: GoogleIdTokenParsingException) {
                     Log.e("AuthActivity", "Google ID token parsing failed", e)
                     Toast.makeText(this, "Googleサインインに失敗しました", Toast.LENGTH_SHORT).show()
@@ -145,27 +165,40 @@ class AuthActivity : ComponentActivity() {
         }
     }
 
-    private fun firebaseAuthWithGoogle(idToken: String) {
+    private fun authenticateWithGoogle(idToken: String) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener(this) { task ->
-                if (task.isSuccessful) {
-                    startActivity(Intent(this, MainActivity::class.java))
-                    finish()
+        val currentUser = auth.currentUser
+
+        val authTask = if (isLinkGoogleAccountMode && currentUser?.isAnonymous == true) {
+            currentUser.linkWithCredential(credential)
+        } else {
+            auth.signInWithCredential(credential)
+        }
+
+        authTask.addOnCompleteListener(this) { task ->
+            if (task.isSuccessful) {
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            } else {
+                Log.w("AuthActivity", "authenticateWithGoogle:failure", task.exception)
+                val message = if (isLinkGoogleAccountMode) {
+                    "Googleアカウント連携に失敗しました"
                 } else {
-                    Log.w("AuthActivity", "firebaseAuthWithGoogle:failure", task.exception)
-                    Toast.makeText(this, "認証に失敗しました", Toast.LENGTH_SHORT).show()
+                    "認証に失敗しました"
                 }
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
             }
+        }
     }
 }
 
 @Composable
 fun AuthScreen(
-    onLoginClick: () -> Unit,
-    onSkipLoginClick: () -> Unit,
+    onGoogleLoginClick: () -> Unit,
+    onAnonymousLoginClick: () -> Unit,
     onTermsClick: () -> Unit,
-    onPrivacyPolicyClick: () -> Unit
+    onPrivacyPolicyClick: () -> Unit,
+    isLinkGoogleAccountMode: Boolean,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var agreed by remember { mutableStateOf(false) }
@@ -176,17 +209,17 @@ fun AuthScreen(
             title = { Text("ご利用にあたっての注意事項") },
             text = {
                 Column {
-                    Text("ログインせずに利用した場合、データはお使いのスマートフォン内に保存されます。そのため、以下の点にご注意ください。")
+                    Text("ログインせずに利用した場合、匿名アカウントでクラウドにデータが保存されます。そのため、以下の点にご注意ください。")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("・機種変更など、お使いのスマートフォンを変更する際にデータを引き継ぐことはできません。")
+                    Text("・端末変更時も匿名アカウントのままでは復元できないため、設定からGoogleアカウント連携をおすすめします。")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("・後からログインした場合でも、ログインせずに作成したデータを引き継ぐことはできません。")
+                    Text("・ログアウトすると匿名アカウントに再ログインできず、データへアクセスできなくなる場合があります。")
                 }
             },
             confirmButton = {
                 Button(onClick = {
                     showDialog = false
-                    onSkipLoginClick()
+                    onAnonymousLoginClick()
                 }) {
                     Text("利用を続ける")
                 }
@@ -244,12 +277,15 @@ fun AuthScreen(
             )
         }
 
-        Button(onClick = onLoginClick, enabled = agreed) {
-            Text("Googleでログイン")
+        Button(onClick = onGoogleLoginClick, enabled = agreed) {
+            Text(if (isLinkGoogleAccountMode) "Googleアカウントと連携" else "Googleでログイン")
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        TextButton(onClick = { showDialog = true }, enabled = agreed) {
-            Text("ログインせずに利用する")
+
+        if (!isLinkGoogleAccountMode) {
+            Spacer(modifier = Modifier.height(16.dp))
+            TextButton(onClick = { showDialog = true }, enabled = agreed) {
+                Text("ログインせずに利用する")
+            }
         }
     }
 }

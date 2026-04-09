@@ -63,6 +63,7 @@ fun SettingsScreen(
     timelineRepository: TimelineRepository,
     onLogoutClick: () -> Unit,
     onLoginClick: () -> Unit,
+    onLinkGoogleAccountClick: () -> Unit,
     onTermsClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit,
     onRefreshNotes: () -> Unit,
@@ -152,7 +153,14 @@ fun SettingsScreen(
         item {
             SettingsSection("ログイン情報") {
                 if (currentUser != null) {
-                    UserInfoCard(currentUser, onLogoutClick)
+                    if (currentUser.isAnonymous) {
+                        AnonymousUserInfoCard(
+                            onLinkGoogleAccountClick = onLinkGoogleAccountClick,
+                            onLogoutClick = onLogoutClick,
+                        )
+                    } else {
+                        UserInfoCard(currentUser, onLogoutClick)
+                    }
                 } else {
                     LoginPromptCard(onLoginClick)
                 }
@@ -240,6 +248,41 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnonymousUserInfoCard(
+    onLinkGoogleAccountClick: () -> Unit,
+    onLogoutClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "匿名ログイン中",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "このままでも利用できますが、Googleアカウントと連携すると端末変更時もデータを引き継げます。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onLinkGoogleAccountClick) {
+                Text("Googleアカウントと連携する")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = onLogoutClick) {
+                Text("ログアウト")
             }
         }
     }

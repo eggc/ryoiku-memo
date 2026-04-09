@@ -19,7 +19,6 @@ import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.data.TaskRepository
-import net.eggc.ryoikumemo.data.SharedPreferencesNoteRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
 import java.time.LocalDate
@@ -31,13 +30,13 @@ class MainViewModel(context: Context) : ViewModel() {
     private val _currentUser = MutableStateFlow(Firebase.auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
 
-    private val _noteRepository = MutableStateFlow<NoteRepository>(createNoteRepository(context, _currentUser.value))
+    private val _noteRepository = MutableStateFlow<NoteRepository>(createNoteRepository())
     val noteRepository: StateFlow<NoteRepository> = _noteRepository.asStateFlow()
 
-    private val _timelineRepository = MutableStateFlow<TimelineRepository>(createTimelineRepository(context, _currentUser.value))
+    private val _timelineRepository = MutableStateFlow<TimelineRepository>(createTimelineRepository())
     val timelineRepository: StateFlow<TimelineRepository> = _timelineRepository.asStateFlow()
 
-    private val _taskRepository = MutableStateFlow<TaskRepository>(createTaskRepository(context, _currentUser.value))
+    private val _taskRepository = MutableStateFlow<TaskRepository>(createTaskRepository())
     val taskRepository: StateFlow<TaskRepository> = _taskRepository.asStateFlow()
 
     private val _currentNote = MutableStateFlow<Note?>(null)
@@ -66,28 +65,24 @@ class MainViewModel(context: Context) : ViewModel() {
             val user = auth.currentUser
             if (_currentUser.value?.uid != user?.uid) {
                 _currentUser.value = user
-                _noteRepository.value = createNoteRepository(context, user)
-                _timelineRepository.value = createTimelineRepository(context, user)
-                _taskRepository.value = createTaskRepository(context, user)
+                _noteRepository.value = createNoteRepository()
+                _timelineRepository.value = createTimelineRepository()
+                _taskRepository.value = createTaskRepository()
                 refreshNotes()
             }
         }
         refreshNotes()
     }
 
-    private fun createNoteRepository(context: Context, user: FirebaseUser?): NoteRepository {
-        return if (user != null) {
-            FirestoreNoteRepository(Firebase.firestore, Firebase.auth)
-        } else {
-            SharedPreferencesNoteRepository(context)
-        }
+    private fun createNoteRepository(): NoteRepository {
+        return FirestoreNoteRepository(Firebase.firestore, Firebase.auth)
     }
 
-    private fun createTimelineRepository(context: Context, user: FirebaseUser?): TimelineRepository {
+    private fun createTimelineRepository(): TimelineRepository {
         return FirestoreTimelineRepository(Firebase.firestore, Firebase.auth)
     }
 
-    private fun createTaskRepository(context: Context, user: FirebaseUser?): TaskRepository {
+    private fun createTaskRepository(): TaskRepository {
         return FirestoreTaskRepository(Firebase.firestore)
     }
 

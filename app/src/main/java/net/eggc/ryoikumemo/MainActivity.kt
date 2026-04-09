@@ -261,6 +261,13 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                             (context as? Activity)?.startActivity(intent)
                             (context as? Activity)?.finish()
                         },
+                        onLinkGoogleAccountClick = {
+                            val intent = Intent(context, AuthActivity::class.java).apply {
+                                putExtra(AuthActivity.EXTRA_LINK_GOOGLE_ACCOUNT, true)
+                            }
+                            (context as? Activity)?.startActivity(intent)
+                            (context as? Activity)?.finish()
+                        },
                         onTermsClick = { viewModel.navigateTo(AppDestinations.TERMS) },
                         onPrivacyPolicyClick = { viewModel.navigateTo(AppDestinations.PRIVACY_POLICY) },
                         onRefreshNotes = {
