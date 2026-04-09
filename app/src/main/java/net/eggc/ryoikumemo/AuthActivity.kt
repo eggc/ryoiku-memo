@@ -7,10 +7,12 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -19,6 +21,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +44,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
@@ -58,6 +62,8 @@ class AuthActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var credentialManager: CredentialManager
     private var isLinkGoogleAccountMode: Boolean = false
+    private var blockingErrorMessage by mutableStateOf<String?>(null)
+    private var onBlockingErrorOk: (() -> Unit)? = null
 
     private enum class AuthDestinations {
         AUTH,
@@ -76,6 +82,25 @@ class AuthActivity : ComponentActivity() {
             RyoikumemoTheme {
                 var currentDestination by remember { mutableStateOf(AuthDestinations.AUTH) }
 
+                val errorMessage = blockingErrorMessage
+                if (errorMessage != null) {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        title = { Text("連携エラー") },
+                        text = { Text(errorMessage) },
+                        confirmButton = {
+                            Button(onClick = {
+                                val action = onBlockingErrorOk
+                                blockingErrorMessage = null
+                                onBlockingErrorOk = null
+                                action?.invoke()
+                            }) {
+                                Text("OK")
+                            }
+                        }
+                    )
+                }
+
                 when (currentDestination) {
                     AuthDestinations.AUTH -> {
                         AuthScreen(
@@ -90,6 +115,9 @@ class AuthActivity : ComponentActivity() {
                             onTermsClick = { currentDestination = AuthDestinations.TERMS },
                             onPrivacyPolicyClick = { currentDestination = AuthDestinations.PRIVACY_POLICY },
                             isLinkGoogleAccountMode = isLinkGoogleAccountMode,
+                            onBackClick = {
+                                finish()
+                            },
                         )
                     }
 
@@ -181,6 +209,12 @@ class AuthActivity : ComponentActivity() {
                 finish()
             } else {
                 Log.w("AuthActivity", "authenticateWithGoogle:failure", task.exception)
+                if (isLinkGoogleAccountMode && task.exception is FirebaseAuthUserCollisionException) {
+                    blockingErrorMessage = "すでにアカウントがあるため連携できませんでした。匿名アカウントからログアウトして再度ログインしてください。"
+                    onBlockingErrorOk = { finish() }
+                    return@addOnCompleteListener
+                }
+
                 val message = if (isLinkGoogleAccountMode) {
                     "Googleアカウント連携に失敗しました"
                 } else {
@@ -199,9 +233,16 @@ fun AuthScreen(
     onTermsClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit,
     isLinkGoogleAccountMode: Boolean,
+    onBackClick: () -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var agreed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isLinkGoogleAccountMode) {
+        if (isLinkGoogleAccountMode) {
+            agreed = true
+        }
+    }
 
     if (showDialog) {
         AlertDialog(
@@ -232,59 +273,74 @@ fun AuthScreen(
         )
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(16.dp)
     ) {
-        val linkStyle = SpanStyle(
-            color = MaterialTheme.colorScheme.primary,
-            textDecoration = TextDecoration.Underline
-        )
-        val annotatedString = buildAnnotatedString {
-            pushLink(
-                LinkAnnotation.Clickable(
-                    tag = "TERMS",
-                    styles = TextLinkStyles(style = linkStyle),
-                    linkInteractionListener = { onTermsClick() }
-                )
-            )
-            append("利用規約")
-            pop()
-            append("と")
-            pushLink(
-                LinkAnnotation.Clickable(
-                    tag = "POLICY",
-                    styles = TextLinkStyles(style = linkStyle),
-                    linkInteractionListener = { onPrivacyPolicyClick() }
-                )
-            )
-            append("プライバシーポリシー")
-            pop()
-            append("に同意の上、ご利用ください。")
+        if (isLinkGoogleAccountMode) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onBackClick) {
+                    Text("戻る")
+                }
+            }
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 24.dp)
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Checkbox(checked = agreed, onCheckedChange = { agreed = it })
-            Text(
-                text = annotatedString,
-                modifier = Modifier.padding(start = 8.dp)
+            val linkStyle = SpanStyle(
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline
             )
-        }
+            val annotatedString = buildAnnotatedString {
+                pushLink(
+                    LinkAnnotation.Clickable(
+                        tag = "TERMS",
+                        styles = TextLinkStyles(style = linkStyle),
+                        linkInteractionListener = { onTermsClick() }
+                    )
+                )
+                append("利用規約")
+                pop()
+                append("と")
+                pushLink(
+                    LinkAnnotation.Clickable(
+                        tag = "POLICY",
+                        styles = TextLinkStyles(style = linkStyle),
+                        linkInteractionListener = { onPrivacyPolicyClick() }
+                    )
+                )
+                append("プライバシーポリシー")
+                pop()
+                append("に同意の上、ご利用ください。")
+            }
 
-        Button(onClick = onGoogleLoginClick, enabled = agreed) {
-            Text(if (isLinkGoogleAccountMode) "Googleアカウントと連携" else "Googleでログイン")
-        }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 24.dp)
+            ) {
+                Checkbox(checked = agreed, onCheckedChange = { agreed = it }, enabled = !isLinkGoogleAccountMode)
+                Text(
+                    text = annotatedString,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
 
-        if (!isLinkGoogleAccountMode) {
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(onClick = { showDialog = true }, enabled = agreed) {
-                Text("ログインせずに利用する")
+            Button(onClick = onGoogleLoginClick, enabled = agreed) {
+                Text(if (isLinkGoogleAccountMode) "Googleアカウントと連携" else "Googleでログイン")
+            }
+
+            if (!isLinkGoogleAccountMode) {
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = { showDialog = true }, enabled = agreed) {
+                    Text("ログインせずに利用する")
+                }
             }
         }
     }

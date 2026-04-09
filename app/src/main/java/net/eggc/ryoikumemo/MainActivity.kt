@@ -266,7 +266,6 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                                 putExtra(AuthActivity.EXTRA_LINK_GOOGLE_ACCOUNT, true)
                             }
                             (context as? Activity)?.startActivity(intent)
-                            (context as? Activity)?.finish()
                         },
                         onTermsClick = { viewModel.navigateTo(AppDestinations.TERMS) },
                         onPrivacyPolicyClick = { viewModel.navigateTo(AppDestinations.PRIVACY_POLICY) },
