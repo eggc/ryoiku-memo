@@ -52,6 +52,7 @@ import net.eggc.ryoikumemo.ui.feature.stamp.StampAddScreen
 import net.eggc.ryoikumemo.ui.feature.stamp.StampEditScreen
 import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
 import net.eggc.ryoikumemo.ui.feature.timeline.TimelineScreen
+import net.eggc.ryoikumemo.ui.feature.tools.ToolsScreen
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
 
 class MainActivity : ComponentActivity() {
@@ -168,6 +169,12 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         onAddStampClick = {
                             viewModel.navigateTo(AppDestinations.STAMP_ADD)
                         }
+                    )
+
+                    AppDestinations.TOOLS -> ToolsScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        onTaskClick = { viewModel.navigateTo(AppDestinations.TASK) },
+                        onSleepGraphClick = { viewModel.navigateTo(AppDestinations.REVIEW) }
                     )
 
                     AppDestinations.TASK -> TaskScreen(

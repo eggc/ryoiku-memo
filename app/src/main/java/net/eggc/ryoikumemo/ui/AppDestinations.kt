@@ -1,8 +1,7 @@
 package net.eggc.ryoikumemo.ui
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -12,8 +11,9 @@ enum class AppDestinations(
     val icon: ImageVector?,
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
-    TASK("タスク", Icons.Default.CheckCircle),
-    REVIEW("ふりかえり", Icons.Default.AutoStories),
+    TOOLS("ツール", Icons.Default.Build),
+    TASK("タスク", null),
+    REVIEW("ふりかえり", null),
     NOTE("ノート", null),
     SETTINGS("設定", Icons.Default.Settings),
     TERMS("利用規約", null),
