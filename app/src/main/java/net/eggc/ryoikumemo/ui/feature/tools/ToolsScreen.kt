@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -26,6 +27,7 @@ fun ToolsScreen(
     modifier: Modifier = Modifier,
     onTaskClick: () -> Unit,
     onSleepGraphClick: () -> Unit,
+    onTimerClick: () -> Unit,
 ) {
     Column(
         modifier = modifier
@@ -60,6 +62,18 @@ fun ToolsScreen(
                 )
             },
             onClick = onSleepGraphClick
+        )
+
+        ToolItemCard(
+            label = "タイマー",
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            onClick = onTimerClick
         )
     }
 }

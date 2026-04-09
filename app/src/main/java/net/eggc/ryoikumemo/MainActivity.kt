@@ -51,6 +51,7 @@ import net.eggc.ryoikumemo.ui.feature.settings.TermsScreen
 import net.eggc.ryoikumemo.ui.feature.stamp.StampAddScreen
 import net.eggc.ryoikumemo.ui.feature.stamp.StampEditScreen
 import net.eggc.ryoikumemo.ui.feature.task.TaskScreen
+import net.eggc.ryoikumemo.ui.feature.timer.TimerScreen
 import net.eggc.ryoikumemo.ui.feature.timeline.TimelineScreen
 import net.eggc.ryoikumemo.ui.feature.tools.ToolsScreen
 import net.eggc.ryoikumemo.ui.theme.RyoikumemoTheme
@@ -174,7 +175,12 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                     AppDestinations.TOOLS -> ToolsScreen(
                         modifier = Modifier.padding(innerPadding),
                         onTaskClick = { viewModel.navigateTo(AppDestinations.TASK) },
-                        onSleepGraphClick = { viewModel.navigateTo(AppDestinations.REVIEW) }
+                        onSleepGraphClick = { viewModel.navigateTo(AppDestinations.REVIEW) },
+                        onTimerClick = { viewModel.navigateTo(AppDestinations.TIMER) }
+                    )
+
+                    AppDestinations.TIMER -> TimerScreen(
+                        modifier = Modifier.padding(innerPadding)
                     )
 
                     AppDestinations.TASK -> TaskScreen(

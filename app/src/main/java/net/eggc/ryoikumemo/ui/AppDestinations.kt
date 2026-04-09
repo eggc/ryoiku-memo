@@ -12,6 +12,7 @@ enum class AppDestinations(
 ) {
     TIMELINE("タイムライン", Icons.Default.Timeline),
     TOOLS("ツール", Icons.Default.Build),
+    TIMER("タイマー", null),
     TASK("タスク", null),
     REVIEW("ふりかえり", null),
     NOTE("ノート", null),
