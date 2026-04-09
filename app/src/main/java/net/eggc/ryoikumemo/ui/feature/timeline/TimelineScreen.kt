@@ -57,6 +57,7 @@ fun TimelineScreen(
     note: Note,
     currentMonth: LocalDate,
     onMonthChange: (LocalDate) -> Unit,
+    onCopyStampClick: (Long) -> Unit,
     onEditStampClick: (Long) -> Unit,
     onAddStampClick: () -> Unit
 ) {
@@ -140,6 +141,7 @@ fun TimelineScreen(
                     selectedFilters = selectedFilters,
                     targetDate = if (targetDate?.year == month.year && targetDate?.month == month.month) targetDate else null,
                     onTargetDateScrolled = { targetDate = null },
+                    onCopyStampClick = { onCopyStampClick(it) },
                     onEditStampClick = { onEditStampClick(it) },
                     onDateClick = { showJumpDatePicker = true }
                 )

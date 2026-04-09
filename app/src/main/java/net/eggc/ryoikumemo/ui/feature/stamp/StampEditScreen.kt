@@ -58,6 +58,7 @@ fun StampEditScreen(
     stampItem: StampItem,
     timelineRepository: TimelineRepository,
     note: Note,
+    isCopying: Boolean = false,
     onBack: () -> Unit,
     onSave: (Long, String) -> Unit
 ) {
@@ -142,7 +143,7 @@ fun StampEditScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("${stampItem.type.label}を記録") },
+                title = { Text(if (isCopying) "${stampItem.type.label}をコピー" else "${stampItem.type.label}を記録") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "戻る")
@@ -236,7 +237,7 @@ fun StampEditScreen(
                 onClick = { onSave(timestamp, memoText) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("保存")
+                Text(if (isCopying) "コピー作成" else "保存")
             }
         }
     }

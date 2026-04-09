@@ -82,6 +82,7 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
     val allNotes by viewModel.allNotes.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val editingStamp by viewModel.editingStamp.collectAsState()
+    val isCopyingStamp by viewModel.isCopyingStamp.collectAsState()
 
     val context = LocalContext.current
 
@@ -164,6 +165,9 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                         note = currentNote!!,
                         currentMonth = selectedMonth,
                         onMonthChange = { viewModel.setMonth(it) },
+                        onCopyStampClick = { stampId ->
+                            viewModel.startCopyingStampById(stampId)
+                        },
                         onEditStampClick = { stampId ->
                             viewModel.setEditingStampById(stampId)
                         },
@@ -217,12 +221,14 @@ fun RyoikumemoApp(viewModel: MainViewModel) {
                                 stampItem = editingStamp!!,
                                 timelineRepository = timelineRepository,
                                 note = currentNote!!,
+                                isCopying = isCopyingStamp,
                                 onBack = {
                                     viewModel.popBackStack()
                                 },
                                 onSave = { timestamp, noteText ->
                                     viewModel.saveStamp(timestamp, noteText)
-                                    Toast.makeText(context, "保存しました", Toast.LENGTH_SHORT).show()
+                                    val toastText = if (isCopyingStamp) "コピーを作成しました" else "保存しました"
+                                    Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
                                 }
                             )
                         }

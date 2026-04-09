@@ -59,6 +59,7 @@ fun TimelineMonthPage(
     selectedFilters: Set<StampType>,
     targetDate: LocalDate?,
     onTargetDateScrolled: () -> Unit,
+    onCopyStampClick: (Long) -> Unit,
     onEditStampClick: (Long) -> Unit,
     onDateClick: () -> Unit
 ) {
@@ -201,6 +202,7 @@ fun TimelineMonthPage(
                                             stampType = item.type,
                                             note = item.note,
                                             operatorName = item.operatorName,
+                                            onCopyClick = { onCopyStampClick(item.timestamp) },
                                             onEditClick = { onEditStampClick(item.timestamp) },
                                             onDeleteClick = { showDeleteDialogFor = item }
                                         )

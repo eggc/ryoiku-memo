@@ -59,6 +59,9 @@ class MainViewModel(context: Context) : ViewModel() {
     private val _isEditingExisting = MutableStateFlow(false)
     val isEditingExisting: StateFlow<Boolean> = _isEditingExisting.asStateFlow()
 
+    private val _isCopyingStamp = MutableStateFlow(false)
+    val isCopyingStamp: StateFlow<Boolean> = _isCopyingStamp.asStateFlow()
+
     init {
         // Auth 状態の監視
         Firebase.auth.addAuthStateListener { auth ->
@@ -139,6 +142,7 @@ class MainViewModel(context: Context) : ViewModel() {
         }
         if (destination != AppDestinations.EDIT_STAMP) {
             _editingStamp.value = null
+            _isCopyingStamp.value = false
         }
     }
 
@@ -147,6 +151,7 @@ class MainViewModel(context: Context) : ViewModel() {
             _currentDestination.value = navigationHistory.pop()
             if (_currentDestination.value != AppDestinations.EDIT_STAMP) {
                 _editingStamp.value = null
+                _isCopyingStamp.value = false
             }
             return true
         }
@@ -156,11 +161,13 @@ class MainViewModel(context: Context) : ViewModel() {
     fun setEditingStamp(stamp: StampItem?) {
         _editingStamp.value = stamp
         _isEditingExisting.value = stamp != null
+        _isCopyingStamp.value = false
     }
 
     fun startAddingStamp(type: StampType) {
         _editingStamp.value = StampItem(System.currentTimeMillis(), type, "")
         _isEditingExisting.value = false
+        _isCopyingStamp.value = false
         navigateTo(AppDestinations.EDIT_STAMP)
     }
 
@@ -171,6 +178,21 @@ class MainViewModel(context: Context) : ViewModel() {
             val item = timelineRepo.getStampItem(note.ownerId, note.id, stampId)
             _editingStamp.value = item
             _isEditingExisting.value = item != null
+            _isCopyingStamp.value = false
+            if (item != null) {
+                navigateTo(AppDestinations.EDIT_STAMP)
+            }
+        }
+    }
+
+    fun startCopyingStampById(stampId: Long) {
+        val note = _currentNote.value ?: return
+        val timelineRepo = _timelineRepository.value
+        viewModelScope.launch {
+            val item = timelineRepo.getStampItem(note.ownerId, note.id, stampId)
+            _editingStamp.value = item
+            _isEditingExisting.value = false
+            _isCopyingStamp.value = item != null
             if (item != null) {
                 navigateTo(AppDestinations.EDIT_STAMP)
             }
@@ -181,13 +203,24 @@ class MainViewModel(context: Context) : ViewModel() {
         val currentStamp = _editingStamp.value ?: return
         val note = _currentNote.value ?: return
         val timelineRepo = _timelineRepository.value
+        val isCopying = _isCopyingStamp.value
 
         viewModelScope.launch {
             if (_isEditingExisting.value) {
                 timelineRepo.deleteTimelineItem(note.ownerId, note.id, currentStamp)
             }
-            timelineRepo.saveStamp(note.ownerId, note.id, currentStamp.type, noteText, timestamp)
+            val saveTimestamp = if (isCopying) {
+                var candidate = timestamp
+                while (timelineRepo.getStampItem(note.ownerId, note.id, candidate) != null) {
+                    candidate += 1
+                }
+                candidate
+            } else {
+                timestamp
+            }
+            timelineRepo.saveStamp(note.ownerId, note.id, currentStamp.type, noteText, saveTimestamp)
             _editingStamp.value = null
+            _isCopyingStamp.value = false
             _currentDestination.value = AppDestinations.TIMELINE
             navigationHistory.clear() // 保存後は履歴をクリアしてタイムラインを起点にする
         }
