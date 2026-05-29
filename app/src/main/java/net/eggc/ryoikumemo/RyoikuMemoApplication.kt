@@ -1,9 +1,7 @@
 package net.eggc.ryoikumemo
 
 import android.app.Application
-import android.util.Log
 import com.google.firebase.Firebase
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.MemoryCacheSettings
 import com.google.firebase.firestore.firestore
@@ -25,13 +23,5 @@ class RyoikuMemoApplication : Application() {
             .build()
 
         db.firestoreSettings = settings
-
-        if (BuildConfig.DEBUG) {
-            try {
-                FirebaseFirestore.setLoggingEnabled(true)
-            } catch (e: Exception) {
-                Log.w("FirestoreConfig", "Failed to enable Firestore debug logging", e)
-            }
-        }
     }
 }

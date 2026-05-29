@@ -2,6 +2,7 @@ package net.eggc.ryoikumemo.data
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -29,6 +30,10 @@ class FirestoreTimelineRepository(
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val monthFlowCache = ConcurrentHashMap<String, Flow<List<TimelineItem>>>()
 
+    private fun logOneLine(message: String) {
+        if (BuildConfig.DEBUG) Log.d(tag, message)
+    }
+
     private fun timelineCollection(ownerId: String, noteId: String) =
         db.collection("users").document(ownerId).collection("notes").document(noteId).collection("timeline")
 
@@ -55,9 +60,7 @@ class FirestoreTimelineRepository(
         val flowKey = "$ownerId/$noteId/${normalizedMonth.year}-${normalizedMonth.monthValue}"
 
         monthFlowCache[flowKey]?.let { cached ->
-            if (BuildConfig.DEBUG) {
-                Log.d(tag, "timeline-month-flow:reuse key=$flowKey")
-            }
+            logOneLine("TL_SUBSCRIBE resource=$flowKey action=reuse")
             return cached
         }
 
@@ -69,9 +72,7 @@ class FirestoreTimelineRepository(
             )
 
         val existing = monthFlowCache.putIfAbsent(flowKey, shared)
-        if (BuildConfig.DEBUG) {
-            Log.d(tag, "timeline-month-flow:create key=$flowKey")
-        }
+        logOneLine("TL_SUBSCRIBE resource=$flowKey action=create")
         return existing ?: shared
     }
 
@@ -88,34 +89,38 @@ class FirestoreTimelineRepository(
             .orderBy("timestamp", Query.Direction.DESCENDING)
 
         val monthKey = "$ownerId/$noteId/${startOfMonth.year}-${startOfMonth.monthValue}"
-        if (BuildConfig.DEBUG) {
-            Log.d(tag, "timeline-month-listener:start key=$monthKey startTs=$startTimestamp endTs=$endTimestamp")
-        }
+        val subscriptionStartedAt = System.currentTimeMillis()
+        logOneLine("TL_LISTENER resource=$monthKey action=start")
 
         val subscription = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
+            val callbackStartedAt = System.currentTimeMillis()
             if (error != null) {
                 Log.e(tag, "getTimelineItemsForMonthFlow error", error)
                 trySend(emptyList())
                 return@addSnapshotListener
             }
 
-            if (BuildConfig.DEBUG && snapshot != null) {
-                Log.d(
-                    tag,
-                    "timeline-month-listener:update key=$monthKey size=${snapshot.size()} fromCache=${snapshot.metadata.isFromCache} pendingWrites=${snapshot.metadata.hasPendingWrites()}"
+            val mappedItems = mapSnapshotToTimelineItems(snapshot)
+            if (snapshot != null) {
+                val createdCount = snapshot.documentChanges.count { it.type == DocumentChange.Type.ADDED }
+                val updatedCount = snapshot.documentChanges.count { it.type == DocumentChange.Type.MODIFIED }
+                val deletedCount = snapshot.documentChanges.count { it.type == DocumentChange.Type.REMOVED }
+                val elapsedMs = System.currentTimeMillis() - callbackStartedAt
+                logOneLine(
+                    "TL_READ resource=$monthKey created=$createdCount updated=$updatedCount deleted=$deletedCount size=${mappedItems.size} cache=${snapshot.metadata.isFromCache} ms=$elapsedMs"
                 )
             }
-            trySend(mapSnapshotToTimelineItems(snapshot))
+            trySend(mappedItems)
         }
         awaitClose {
-            if (BuildConfig.DEBUG) {
-                Log.d(tag, "timeline-month-listener:stop key=$monthKey")
-            }
+            val elapsedMs = System.currentTimeMillis() - subscriptionStartedAt
+            logOneLine("TL_LISTENER resource=$monthKey action=stop ms=$elapsedMs")
             subscription.remove()
         }
     }
 
     override suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, dateInMonth: LocalDate): List<TimelineItem> {
+        val startedAt = System.currentTimeMillis()
         val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
         val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
 
@@ -129,7 +134,11 @@ class FirestoreTimelineRepository(
             .get()
             .await()
 
-        return mapSnapshotToTimelineItems(snapshot)
+        val items = mapSnapshotToTimelineItems(snapshot)
+        val monthKey = "$ownerId/$noteId/${startOfMonth.year}-${startOfMonth.monthValue}"
+        val elapsedMs = System.currentTimeMillis() - startedAt
+        logOneLine("TL_FETCH resource=$monthKey created=0 updated=0 deleted=0 size=${items.size} cache=false ms=$elapsedMs")
+        return items
     }
 
     override suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem> {
@@ -173,6 +182,7 @@ class FirestoreTimelineRepository(
     }
 
     override suspend fun saveStamp(ownerId: String, noteId: String, stampType: StampType, note: String, timestamp: Long) {
+        val startedAt = System.currentTimeMillis()
         val stampMap = hashMapOf(
             "itemType" to "stamp",
             "timestamp" to timestamp,
@@ -181,6 +191,8 @@ class FirestoreTimelineRepository(
             "operatorName" to auth.currentUser?.displayName
         )
         timelineCollection(ownerId, noteId).document(timestamp.toString()).set(stampMap).await()
+        val elapsedMs = System.currentTimeMillis() - startedAt
+        logOneLine("TL_WRITE resource=$ownerId/$noteId/$timestamp created=1 updated=0 deleted=0 ms=$elapsedMs")
     }
 
     override suspend fun saveStamps(ownerId: String, noteId: String, stamps: List<StampItem>) {
@@ -207,7 +219,10 @@ class FirestoreTimelineRepository(
 
     override suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem) {
         if (item is StampItem) {
+            val startedAt = System.currentTimeMillis()
             timelineCollection(ownerId, noteId).document(item.timestamp.toString()).delete().await()
+            val elapsedMs = System.currentTimeMillis() - startedAt
+            logOneLine("TL_WRITE resource=$ownerId/$noteId/${item.timestamp} created=0 updated=0 deleted=1 ms=$elapsedMs")
         }
     }
 }
