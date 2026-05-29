@@ -3,6 +3,7 @@ package net.eggc.ryoikumemo.data
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentChange
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -67,7 +68,7 @@ class FirestoreTimelineRepository(
         val shared = createTimelineItemsForMonthFlow(ownerId, noteId, normalizedMonth)
             .shareIn(
                 scope = repositoryScope,
-                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 60_000),
                 replay = 1
             )
 
@@ -188,7 +189,8 @@ class FirestoreTimelineRepository(
             "timestamp" to timestamp,
             "type" to stampType.name,
             "note" to note,
-            "operatorName" to auth.currentUser?.displayName
+            "operatorName" to auth.currentUser?.displayName,
+            "updatedAt" to FieldValue.serverTimestamp()
         )
         timelineCollection(ownerId, noteId).document(timestamp.toString()).set(stampMap).await()
         val elapsedMs = System.currentTimeMillis() - startedAt
@@ -209,7 +211,8 @@ class FirestoreTimelineRepository(
                     "timestamp" to stamp.timestamp,
                     "type" to stamp.type.name,
                     "note" to stamp.note,
-                    "operatorName" to operatorName
+                    "operatorName" to operatorName,
+                    "updatedAt" to FieldValue.serverTimestamp()
                 )
                 batch.set(timeline.document(stamp.timestamp.toString()), stampMap)
             }
