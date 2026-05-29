@@ -2,22 +2,32 @@ package net.eggc.ryoikumemo.data
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.tasks.await
+import net.eggc.ryoikumemo.BuildConfig
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import java.util.concurrent.ConcurrentHashMap
 
 class FirestoreTimelineRepository(
     private val db: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) : TimelineRepository {
     private val tag = "FirestoreTimelineRepo"
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val monthFlowCache = ConcurrentHashMap<String, Flow<List<TimelineItem>>>()
 
     private fun timelineCollection(ownerId: String, noteId: String) =
         db.collection("users").document(ownerId).collection("notes").document(noteId).collection("timeline")
@@ -40,7 +50,32 @@ class FirestoreTimelineRepository(
         } ?: emptyList()
     }
 
-    override fun getTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>> = callbackFlow {
+    override fun getTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>> {
+        val normalizedMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
+        val flowKey = "$ownerId/$noteId/${normalizedMonth.year}-${normalizedMonth.monthValue}"
+
+        monthFlowCache[flowKey]?.let { cached ->
+            if (BuildConfig.DEBUG) {
+                Log.d(tag, "timeline-month-flow:reuse key=$flowKey")
+            }
+            return cached
+        }
+
+        val shared = createTimelineItemsForMonthFlow(ownerId, noteId, normalizedMonth)
+            .shareIn(
+                scope = repositoryScope,
+                started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+                replay = 1
+            )
+
+        val existing = monthFlowCache.putIfAbsent(flowKey, shared)
+        if (BuildConfig.DEBUG) {
+            Log.d(tag, "timeline-month-flow:create key=$flowKey")
+        }
+        return existing ?: shared
+    }
+
+    private fun createTimelineItemsForMonthFlow(ownerId: String, noteId: String, dateInMonth: LocalDate): Flow<List<TimelineItem>> = callbackFlow {
         val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
         val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
 
@@ -52,15 +87,32 @@ class FirestoreTimelineRepository(
             .whereLessThan("timestamp", endTimestamp)
             .orderBy("timestamp", Query.Direction.DESCENDING)
 
-        val subscription = query.addSnapshotListener { snapshot, error ->
+        val monthKey = "$ownerId/$noteId/${startOfMonth.year}-${startOfMonth.monthValue}"
+        if (BuildConfig.DEBUG) {
+            Log.d(tag, "timeline-month-listener:start key=$monthKey startTs=$startTimestamp endTs=$endTimestamp")
+        }
+
+        val subscription = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
             if (error != null) {
                 Log.e(tag, "getTimelineItemsForMonthFlow error", error)
                 trySend(emptyList())
                 return@addSnapshotListener
             }
+
+            if (BuildConfig.DEBUG && snapshot != null) {
+                Log.d(
+                    tag,
+                    "timeline-month-listener:update key=$monthKey size=${snapshot.size()} fromCache=${snapshot.metadata.isFromCache} pendingWrites=${snapshot.metadata.hasPendingWrites()}"
+                )
+            }
             trySend(mapSnapshotToTimelineItems(snapshot))
         }
-        awaitClose { subscription.remove() }
+        awaitClose {
+            if (BuildConfig.DEBUG) {
+                Log.d(tag, "timeline-month-listener:stop key=$monthKey")
+            }
+            subscription.remove()
+        }
     }
 
     override suspend fun getTimelineItemsForMonth(ownerId: String, noteId: String, dateInMonth: LocalDate): List<TimelineItem> {

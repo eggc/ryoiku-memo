@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import net.eggc.ryoikumemo.BuildConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.eggc.ryoikumemo.data.Note
@@ -69,6 +71,17 @@ fun TimelineMonthPage(
     val timelineItems by remember(note.id, month) {
         timelineRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
+
+    DisposableEffect(note.id, month) {
+        if (BuildConfig.DEBUG) {
+            Log.d("TimelineMonthPage", "ui-subscription:start noteId=${note.id} month=$month")
+        }
+        onDispose {
+            if (BuildConfig.DEBUG) {
+                Log.d("TimelineMonthPage", "ui-subscription:stop noteId=${note.id} month=$month")
+            }
+        }
+    }
 
     var isRefreshing by remember { mutableStateOf(false) }
     var showDeleteDialogFor by remember { mutableStateOf<TimelineItem?>(null) }
@@ -145,7 +158,9 @@ fun TimelineMonthPage(
                 coroutineScope.launch {
                     isRefreshing = true
                     try {
-                        timelineRepository.getTimelineItemsForMonth(note.ownerId, note.id, month)
+                        if (BuildConfig.DEBUG) {
+                            Log.d("TimelineMonthPage", "pull-to-refresh:skip-one-shot-fetch noteId=${note.id} month=$month")
+                        }
                     } finally {
                         delay(500)
                         isRefreshing = false
