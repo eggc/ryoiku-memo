@@ -2,12 +2,14 @@ package net.eggc.ryoikumemo.data
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -46,11 +48,26 @@ class FirestoreTimelineRepository(
                     },
                     note = doc.getString("note") ?: "",
                     operatorName = doc.getString("operatorName"),
-                    remoteUpdatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time,
+                    remoteUpdatedAt = readEpochMillis(doc, "updatedAt"),
                 )
                 else -> null
             }
         } ?: emptyList()
+    }
+
+    private fun readEpochMillis(doc: DocumentSnapshot, field: String): Long? {
+        val raw = try {
+            doc.get(field)
+        } catch (_: Exception) {
+            null
+        }
+        return when (raw) {
+            is Timestamp -> raw.toDate().time
+            is Number -> raw.toLong()
+            is java.util.Date -> raw.time
+            is String -> raw.toLongOrNull()
+            else -> null
+        }
     }
 
     private fun queryForMonth(ownerId: String, noteId: String, dateInMonth: LocalDate): Query {
@@ -153,7 +170,7 @@ class FirestoreTimelineRepository(
 
             TimelineMonthMeta(
                 revision = doc.getLong("revision") ?: 0L,
-                lastChangedAt = doc.getTimestamp("lastChangedAt")?.toDate()?.time ?: 0L,
+                lastChangedAt = readEpochMillis(doc, "lastChangedAt") ?: 0L,
             )
         } catch (_: Exception) {
             null
@@ -183,7 +200,7 @@ class FirestoreTimelineRepository(
             },
             note = doc.getString("note") ?: "",
             operatorName = doc.getString("operatorName"),
-            remoteUpdatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time,
+            remoteUpdatedAt = readEpochMillis(doc, "updatedAt"),
         )
     }
 

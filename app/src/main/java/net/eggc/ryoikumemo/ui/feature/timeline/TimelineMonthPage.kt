@@ -116,6 +116,7 @@ fun TimelineMonthPage(
                         coroutineScope.launch {
                             try {
                                 timelineRepository.deleteTimelineItem(note.ownerId, note.id, itemToDelete)
+                                refreshToken += 1
                                 showDeleteDialogFor = null
                                 Toast.makeText(context, "削除しました", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
