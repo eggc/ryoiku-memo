@@ -20,6 +20,8 @@ data class TimelineStampEntity(
     val note: String,
     @ColumnInfo(name = "operator_name")
     val operatorName: String?,
-    @ColumnInfo(name = "updated_at")
-    val updatedAt: Long?,
+    @ColumnInfo(name = "local_synced_at")
+    val localSyncedAt: Long?,
+    @ColumnInfo(name = "remote_updated_at")
+    val remoteUpdatedAt: Long?,
 )

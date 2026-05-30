@@ -41,7 +41,8 @@ class FirestoreTimelineRepository(
                         StampType.MEMO
                     },
                     note = doc.getString("note") ?: "",
-                    operatorName = doc.getString("operatorName")
+                    operatorName = doc.getString("operatorName"),
+                    remoteUpdatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time,
                 )
                 else -> null
             }

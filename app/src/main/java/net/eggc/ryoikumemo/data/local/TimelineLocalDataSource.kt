@@ -25,7 +25,17 @@ class TimelineLocalDataSource(
         val (startTimestamp, endTimestamp) = monthRange(dateInMonth)
         stampDao.deleteByMonth(ownerId, noteId, startTimestamp, endTimestamp)
         if (items.isNotEmpty()) {
-            stampDao.upsertAll(items.map { it.toEntity(ownerId, noteId, updatedAt = System.currentTimeMillis()) })
+            val syncedAt = System.currentTimeMillis()
+            stampDao.upsertAll(
+                items.map {
+                    it.toEntity(
+                        ownerId = ownerId,
+                        noteId = noteId,
+                        localSyncedAt = syncedAt,
+                        remoteUpdatedAt = it.remoteUpdatedAt,
+                    )
+                }
+            )
         }
     }
 
@@ -34,12 +44,13 @@ class TimelineLocalDataSource(
     }
 
     suspend fun upsert(ownerId: String, noteId: String, item: StampItem) {
-        stampDao.upsert(item.toEntity(ownerId, noteId, updatedAt = System.currentTimeMillis()))
+        stampDao.upsert(item.toEntity(ownerId, noteId, localSyncedAt = System.currentTimeMillis(), remoteUpdatedAt = item.remoteUpdatedAt))
     }
 
     suspend fun upsertAll(ownerId: String, noteId: String, items: List<StampItem>) {
         if (items.isEmpty()) return
-        stampDao.upsertAll(items.map { it.toEntity(ownerId, noteId, updatedAt = System.currentTimeMillis()) })
+        val syncedAt = System.currentTimeMillis()
+        stampDao.upsertAll(items.map { it.toEntity(ownerId, noteId, localSyncedAt = syncedAt, remoteUpdatedAt = it.remoteUpdatedAt) })
     }
 
     suspend fun deleteByTimestamp(ownerId: String, noteId: String, timestamp: Long) {

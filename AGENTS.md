@@ -84,3 +84,18 @@ net.eggc.ryoikumemo/
 - **非推奨 API への対応**:
   - `ClickableText` ではなく `Text` と `AnnotatedString` のリンク機能を使用。
 - **エラーハンドリング**: Firestore の権限エラー等でアプリがクラッシュしないよう、リスナー内での安全な空リスト返却を徹底。
+
+## タイムライン同期
+- **責務分離**:
+  - `FirestoreTimelineRepository`: Firestore 専用（リモート read/write のみ）。
+  - `TimelineLocalDataSource`: Room 専用（ローカル read/write のみ）。
+  - `HybridTimelineRepository`: local-first のオーケストレーション。
+- **local-first フロー**:
+  - 月表示はまず Room の月次データを返し、その後 Firestore 取得結果で月データを置換して再表示。
+  - 保存・削除はローカル先行で反映し、その後 Firestore に反映。
+- **タイムスタンプ設計**（`timeline_stamps`）:
+  - `local_synced_at`: ローカルへ反映した時刻。
+  - `remote_updated_at`: Firestore ドキュメントの `updatedAt`（サーバー時刻）。
+- **`remote_updated_at` の更新タイミング**:
+  - Firestore から読み取ったときにセットされる。
+  - ローカル先行保存の直後は `remote_updated_at` が `null` の場合がある（次回のリモート取得で埋まる）。

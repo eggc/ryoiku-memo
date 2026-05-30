@@ -13,13 +13,15 @@ fun TimelineStampEntity.toModel(): StampItem {
         },
         note = note,
         operatorName = operatorName,
+        remoteUpdatedAt = remoteUpdatedAt,
     )
 }
 
 fun StampItem.toEntity(
     ownerId: String,
     noteId: String,
-    updatedAt: Long? = null,
+    localSyncedAt: Long? = null,
+    remoteUpdatedAt: Long? = null,
 ): TimelineStampEntity {
     return TimelineStampEntity(
         ownerId = ownerId,
@@ -28,6 +30,7 @@ fun StampItem.toEntity(
         type = type.name,
         note = note,
         operatorName = operatorName,
-        updatedAt = updatedAt,
+        localSyncedAt = localSyncedAt,
+        remoteUpdatedAt = remoteUpdatedAt,
     )
 }
