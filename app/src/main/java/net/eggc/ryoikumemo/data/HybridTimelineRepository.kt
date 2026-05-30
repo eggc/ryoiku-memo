@@ -21,15 +21,24 @@ class HybridTimelineRepository(
             val localFirst = local.listByMonth(ownerId, noteId, dateInMonth)
             emit(localFirst)
 
-            var latest = localFirst
-            remote.getTimelineItemsForMonthFlow(ownerId, noteId, dateInMonth).collect { remoteItems ->
-                val remoteStamps = remoteItems.filterIsInstance<StampItem>()
-                local.replaceMonth(ownerId, noteId, dateInMonth, remoteStamps)
-                val updatedLocal = local.listByMonth(ownerId, noteId, dateInMonth)
-                if (updatedLocal != latest) {
-                    latest = updatedLocal
-                    emit(updatedLocal)
+            val remoteMeta = remote.getMonthMeta(ownerId, noteId, dateInMonth)
+            if (remoteMeta != null) {
+                val localRevision = local.getLastServerRevision(ownerId, noteId, dateInMonth)
+                if (localRevision != null && localRevision >= remoteMeta.revision) {
+                    return@flow
                 }
+            }
+
+            val remoteItems = remote.getTimelineItemsForMonth(ownerId, noteId, dateInMonth)
+            val remoteStamps = remoteItems.filterIsInstance<StampItem>()
+            local.replaceMonth(ownerId, noteId, dateInMonth, remoteStamps)
+            remoteMeta?.let {
+                local.upsertMonthSyncRevision(ownerId, noteId, dateInMonth, it.revision)
+            }
+
+            val updatedLocal = local.listByMonth(ownerId, noteId, dateInMonth)
+            if (updatedLocal != localFirst) {
+                emit(updatedLocal)
             }
         }.flowOn(Dispatchers.IO)
     }
@@ -42,7 +51,14 @@ class HybridTimelineRepository(
         val remoteItems = remote.getTimelineItemsForMonth(ownerId, noteId, dateInMonth)
         val remoteStamps = remoteItems.filterIsInstance<StampItem>()
         local.replaceMonth(ownerId, noteId, dateInMonth, remoteStamps)
+        remote.getMonthMeta(ownerId, noteId, dateInMonth)?.let {
+            local.upsertMonthSyncRevision(ownerId, noteId, dateInMonth, it.revision)
+        }
         return local.listByMonth(ownerId, noteId, dateInMonth)
+    }
+
+    override suspend fun getMonthMeta(ownerId: String, noteId: String, dateInMonth: LocalDate): TimelineMonthMeta? {
+        return remote.getMonthMeta(ownerId, noteId, dateInMonth)
     }
 
     override suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem> {

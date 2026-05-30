@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,9 @@ class FirestoreTimelineRepository(
 
     private fun timelineCollection(ownerId: String, noteId: String) =
         db.collection("users").document(ownerId).collection("notes").document(noteId).collection("timeline")
+
+    private fun timelineMetaCollection(ownerId: String, noteId: String) =
+        db.collection("users").document(ownerId).collection("notes").document(noteId).collection("timeline_meta")
 
     private fun mapSnapshotToTimelineItems(snapshot: QuerySnapshot?): List<TimelineItem> {
         return snapshot?.documents?.mapNotNull { doc ->
@@ -64,6 +68,30 @@ class FirestoreTimelineRepository(
         val startTimestamp = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endTimestamp = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         return startTimestamp to endTimestamp
+    }
+
+    private fun monthId(dateInMonth: LocalDate): String {
+        val normalizedMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
+        return "%04d-%02d".format(normalizedMonth.year, normalizedMonth.monthValue)
+    }
+
+    private fun monthId(timestamp: Long): String {
+        val date = java.time.Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+        return monthId(date)
+    }
+
+    private suspend fun touchMonthMeta(ownerId: String, noteId: String, monthId: String) {
+        timelineMetaCollection(ownerId, noteId)
+            .document(monthId)
+            .set(
+                mapOf(
+                    "monthId" to monthId,
+                    "lastChangedAt" to FieldValue.serverTimestamp(),
+                    "revision" to FieldValue.increment(1L),
+                ),
+                SetOptions.merge(),
+            )
+            .await()
     }
 
     private fun monthKey(ownerId: String, noteId: String, dateInMonth: LocalDate): String {
@@ -115,6 +143,23 @@ class FirestoreTimelineRepository(
         return items
     }
 
+    override suspend fun getMonthMeta(ownerId: String, noteId: String, dateInMonth: LocalDate): TimelineMonthMeta? {
+        return try {
+            val doc = timelineMetaCollection(ownerId, noteId)
+                .document(monthId(dateInMonth))
+                .get(Source.SERVER)
+                .await()
+            if (!doc.exists()) return null
+
+            TimelineMonthMeta(
+                revision = doc.getLong("revision") ?: 0L,
+                lastChangedAt = doc.getTimestamp("lastChangedAt")?.toDate()?.time ?: 0L,
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     override suspend fun getAllStampItems(ownerId: String, noteId: String): List<StampItem> {
         val snapshot = timelineCollection(ownerId, noteId)
             .whereEqualTo("itemType", "stamp")
@@ -137,7 +182,8 @@ class FirestoreTimelineRepository(
                 StampType.MEMO
             },
             note = doc.getString("note") ?: "",
-            operatorName = doc.getString("operatorName")
+            operatorName = doc.getString("operatorName"),
+            remoteUpdatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time,
         )
     }
 
@@ -166,6 +212,7 @@ class FirestoreTimelineRepository(
             "updatedAt" to FieldValue.serverTimestamp()
         )
         timelineCollection(ownerId, noteId).document(timestamp.toString()).set(stampMap).await()
+        touchMonthMeta(ownerId, noteId, monthId(timestamp))
         val elapsedMs = System.currentTimeMillis() - startedAt
         logOneLine("TL resource=$ownerId/$noteId/$timestamp action=create ms=$elapsedMs")
     }
@@ -175,10 +222,12 @@ class FirestoreTimelineRepository(
 
         val timeline = timelineCollection(ownerId, noteId)
         val operatorName = auth.currentUser?.displayName
+        val touchedMonths = mutableSetOf<String>()
 
         stamps.chunked(500).forEach { chunk ->
             val batch = db.batch()
             chunk.forEach { stamp ->
+                touchedMonths += monthId(stamp.timestamp)
                 val stampMap = hashMapOf(
                     "itemType" to "stamp",
                     "timestamp" to stamp.timestamp,
@@ -191,12 +240,17 @@ class FirestoreTimelineRepository(
             }
             batch.commit().await()
         }
+
+        touchedMonths.forEach { month ->
+            touchMonthMeta(ownerId, noteId, month)
+        }
     }
 
     override suspend fun deleteTimelineItem(ownerId: String, noteId: String, item: TimelineItem) {
         if (item is StampItem) {
             val startedAt = System.currentTimeMillis()
             timelineCollection(ownerId, noteId).document(item.timestamp.toString()).delete().await()
+            touchMonthMeta(ownerId, noteId, monthId(item.timestamp))
             val elapsedMs = System.currentTimeMillis() - startedAt
             logOneLine("TL resource=$ownerId/$noteId/${item.timestamp} action=delete ms=$elapsedMs")
         }

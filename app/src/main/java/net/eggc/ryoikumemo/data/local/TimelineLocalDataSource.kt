@@ -7,6 +7,7 @@ import java.time.temporal.TemporalAdjusters
 
 class TimelineLocalDataSource(
     private val stampDao: TimelineStampDao,
+    private val syncStateDao: TimelineSyncStateDao,
 ) {
     private fun monthRange(dateInMonth: LocalDate): Pair<Long, Long> {
         val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
@@ -14,6 +15,11 @@ class TimelineLocalDataSource(
         val startTimestamp = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endTimestamp = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         return startTimestamp to endTimestamp
+    }
+
+    private fun monthKey(dateInMonth: LocalDate): String {
+        val normalizedMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
+        return "%04d-%02d".format(normalizedMonth.year, normalizedMonth.monthValue)
     }
 
     suspend fun listByMonth(ownerId: String, noteId: String, dateInMonth: LocalDate): List<StampItem> {
@@ -55,5 +61,21 @@ class TimelineLocalDataSource(
 
     suspend fun deleteByTimestamp(ownerId: String, noteId: String, timestamp: Long) {
         stampDao.deleteByTimestamp(ownerId, noteId, timestamp)
+    }
+
+    suspend fun getLastServerRevision(ownerId: String, noteId: String, dateInMonth: LocalDate): Long? {
+        return syncStateDao.get(ownerId, noteId, monthKey(dateInMonth))?.lastServerSyncAt
+    }
+
+    suspend fun upsertMonthSyncRevision(ownerId: String, noteId: String, dateInMonth: LocalDate, revision: Long) {
+        syncStateDao.upsert(
+            TimelineSyncStateEntity(
+                ownerId = ownerId,
+                noteId = noteId,
+                monthKey = monthKey(dateInMonth),
+                lastPolledAt = System.currentTimeMillis(),
+                lastServerSyncAt = revision,
+            )
+        )
     }
 }

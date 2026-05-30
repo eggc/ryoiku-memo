@@ -87,7 +87,7 @@ class MainViewModel(context: Context) : ViewModel() {
 
     private fun createTimelineRepository(): TimelineRepository {
         val remote = FirestoreTimelineRepository(Firebase.firestore, Firebase.auth)
-        val local = TimelineLocalDataSource(localDb.timelineStampDao())
+        val local = TimelineLocalDataSource(localDb.timelineStampDao(), localDb.timelineSyncStateDao())
         return HybridTimelineRepository(remote, local)
     }
 
