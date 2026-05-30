@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,8 +66,9 @@ fun TimelineMonthPage(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var refreshToken by remember(note.id, month) { mutableIntStateOf(0) }
 
-    val timelineItems by remember(note.id, month) {
+    val timelineItems by remember(note.id, month, refreshToken) {
         timelineRepository.getTimelineItemsForMonthFlow(note.ownerId, note.id, month)
     }.collectAsState(initial = null)
 
@@ -145,6 +147,8 @@ fun TimelineMonthPage(
                 coroutineScope.launch {
                     isRefreshing = true
                     try {
+                        timelineRepository.getTimelineItemsForMonth(note.ownerId, note.id, month)
+                        refreshToken += 1
                     } finally {
                         delay(500)
                         isRefreshing = false
