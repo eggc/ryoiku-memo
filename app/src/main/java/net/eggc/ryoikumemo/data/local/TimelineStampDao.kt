@@ -43,6 +43,22 @@ interface TimelineStampDao {
 
     @Query(
         """
+        DELETE FROM timeline_stamps
+        WHERE owner_id = :ownerId
+          AND note_id = :noteId
+          AND timestamp >= :startTimestamp
+          AND timestamp < :endTimestamp
+        """
+    )
+    suspend fun deleteByMonth(
+        ownerId: String,
+        noteId: String,
+        startTimestamp: Long,
+        endTimestamp: Long,
+    )
+
+    @Query(
+        """
         SELECT * FROM timeline_stamps
         WHERE owner_id = :ownerId
           AND note_id = :noteId

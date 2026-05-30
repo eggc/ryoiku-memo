@@ -15,17 +15,21 @@ import net.eggc.ryoikumemo.data.AppPreferences
 import net.eggc.ryoikumemo.data.FirestoreNoteRepository
 import net.eggc.ryoikumemo.data.FirestoreTimelineRepository
 import net.eggc.ryoikumemo.data.FirestoreTaskRepository
+import net.eggc.ryoikumemo.data.HybridTimelineRepository
 import net.eggc.ryoikumemo.data.Note
 import net.eggc.ryoikumemo.data.NoteRepository
 import net.eggc.ryoikumemo.data.TimelineRepository
 import net.eggc.ryoikumemo.data.TaskRepository
 import net.eggc.ryoikumemo.data.StampItem
 import net.eggc.ryoikumemo.data.StampType
+import net.eggc.ryoikumemo.data.local.RyoikuMemoDatabase
+import net.eggc.ryoikumemo.data.local.TimelineLocalDataSource
 import java.time.LocalDate
 import java.util.Stack
 
 class MainViewModel(context: Context) : ViewModel() {
     private val appPreferences = AppPreferences(context)
+    private val localDb = RyoikuMemoDatabase.getInstance(context)
 
     private val _currentUser = MutableStateFlow(Firebase.auth.currentUser)
     val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
@@ -82,7 +86,9 @@ class MainViewModel(context: Context) : ViewModel() {
     }
 
     private fun createTimelineRepository(): TimelineRepository {
-        return FirestoreTimelineRepository(Firebase.firestore, Firebase.auth)
+        val remote = FirestoreTimelineRepository(Firebase.firestore, Firebase.auth)
+        val local = TimelineLocalDataSource(localDb.timelineStampDao())
+        return HybridTimelineRepository(remote, local)
     }
 
     private fun createTaskRepository(): TaskRepository {

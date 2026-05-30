@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -15,11 +16,10 @@ import net.eggc.ryoikumemo.BuildConfig
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
-import com.google.firebase.firestore.Source
 
 class FirestoreTimelineRepository(
     private val db: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
 ) : TimelineRepository {
     private val tag = "FirestoreTimelineRepo"
 
@@ -49,16 +49,20 @@ class FirestoreTimelineRepository(
     }
 
     private fun queryForMonth(ownerId: String, noteId: String, dateInMonth: LocalDate): Query {
-        val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
-        val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
-
-        val startTimestamp = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endTimestamp = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val (startTimestamp, endTimestamp) = monthRange(dateInMonth)
 
         return timelineCollection(ownerId, noteId)
             .whereGreaterThanOrEqualTo("timestamp", startTimestamp)
             .whereLessThan("timestamp", endTimestamp)
             .orderBy("timestamp", Query.Direction.DESCENDING)
+    }
+
+    private fun monthRange(dateInMonth: LocalDate): Pair<Long, Long> {
+        val startOfMonth = dateInMonth.with(TemporalAdjusters.firstDayOfMonth())
+        val endOfMonth = dateInMonth.with(TemporalAdjusters.lastDayOfMonth())
+        val startTimestamp = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTimestamp = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        return startTimestamp to endTimestamp
     }
 
     private fun monthKey(ownerId: String, noteId: String, dateInMonth: LocalDate): String {
