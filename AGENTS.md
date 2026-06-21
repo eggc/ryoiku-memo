@@ -99,3 +99,22 @@ net.eggc.ryoikumemo/
 - **`remote_updated_at` の更新タイミング**:
   - Firestore から読み取ったときにセットされる。
   - ローカル先行保存の直後は `remote_updated_at` が `null` の場合がある（次回のリモート取得で埋まる）。
+
+### ノート選択時のタイムライン表示フロー（現行）
+- `MainViewModel.selectNote()` で `currentNote` を更新し、遷移先を `TIMELINE` に設定する。
+- `MainActivity` は `currentNote` を `TimelineScreen` に渡し、`TimelineMonthPage` で `getTimelineItemsForMonthFlow(ownerId, noteId, month)` を購読する。
+- 実体リポジトリは `HybridTimelineRepository`（`FirestoreTimelineRepository` + `TimelineLocalDataSource`）を使用する。
+
+### データ取得順（1か月表示時）
+1. まず Room から当月データを取得して即時表示（local-first）。
+2. Firestore `timeline_meta` の `revision` を取得。
+3. ローカル保存済み `lastServerSyncAt`（= その月の最終同期 revision）と比較し、ローカルが同等以上ならリモート再取得を省略。
+4. ローカルが古い場合のみ Firestore 当月データを取得し、Room の当月データを置換して再表示。
+5. 同期後に `timeline_sync_state.lastServerSyncAt` を最新 revision へ更新。
+
+### ローカルと Firestore の関係
+- **表示の主データ源**: Room（UI は主にローカルを描画）。
+- **正データ源**: Firestore（必要時に月単位で再取得してローカルを更新）。
+- **更新時の反映順**: 保存・削除はローカル先行、その後 Firestore 反映。
+- **変更検知の軸**: Firestore 側で保存・削除時に `timeline_meta.revision` を increment し、次回表示時の再取得判定に利用。
+- **手動更新（Pull-to-refresh）**: one-shot でリモート取得→ローカル置換→再描画。
